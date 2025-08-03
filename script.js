@@ -8,8 +8,8 @@ let score = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
   Promise.all([
-    fetch("data/dictionary.json").then(res => res.json()),
-    fetch("data/merge-map.json").then(res => res.json())
+    fetch("/data/dictionary.json").then(res => res.json()),
+    fetch("/data/merge-map.json").then(res => res.json())
   ]).then(([dict, mMap]) => {
     dictionary = new Set(dict);
     mergeMap = mMap;
