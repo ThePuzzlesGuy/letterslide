@@ -70,10 +70,50 @@ function handleKey(e) {
     e.preventDefault();
     const {dr, dc} = moves[e.key];
     const {r, c} = findTile(selected);
-    const nr = r + dr, nc = c + dc;
-    if (nr>=0&&nr<GRID_SIZE&&nc>=0&&nc<GRID_SIZE) {
-      attemptMove(r, c, nr, nc);
+    slideMove(r, c, dr, dc);
+  }
+}
+
+function slideMove(r, c, dr, dc) {
+  const mover = grid[r][c];
+  if (!mover) return;
+
+  let lastEmpty = null;
+  let nr = r + dr;
+  let nc = c + dc;
+
+  // Step through cells in the direction until we go off-board
+  while (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+    const target = grid[nr][nc];
+
+    if (!target) {
+      // Remember the furthest empty cell
+      lastEmpty = { r: nr, c: nc };
+      nr += dr;
+      nc += dc;
+      continue;
     }
+
+    // Occupied: check for merge
+    if (canMerge(mover, target, r, c, nr, nc)) {
+      // Perform merge at (nr,nc)
+      const merged = mergeTiles(mover, target, r, c, nr, nc);
+      grid[nr][nc] = merged;
+      grid[r][c] = null;
+      checkWord(merged, nr, nc);
+      postMove();
+      return;
+    }
+
+    // Occupied but cannot merge → stop before it
+    break;
+  }
+
+  // No merge happened: if we saw at least one empty cell, move there
+  if (lastEmpty) {
+    grid[lastEmpty.r][lastEmpty.c] = mover;
+    grid[r][c] = null;
+    postMove();
   }
 }
 
