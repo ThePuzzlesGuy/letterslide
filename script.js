@@ -1,1 +1,185 @@
+const GRID_SIZE = 5;
+const COLORS = ["red", "green", "blue", "pink"];
+let dictionary = new Set();
+let mergeMap = {};
+let grid = [];
+let selected = null;
+let score = 0;
 
+document.addEventListener("DOMContentLoaded", () => {
+  Promise.all([
+    fetch("data/dictionary.json").then(res => res.json()),
+    fetch("data/merge-map.json").then(res => res.json())
+  ]).then(([dict, mMap]) => {
+    dictionary = new Set(dict);
+    mergeMap = mMap;
+    initGrid();
+    renderGrid();
+    spawnRandomTile();
+    spawnRandomTile();
+    updateScore();
+  });
+  document.addEventListener("keydown", handleKey);
+});
+
+function initGrid() {
+  grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+}
+
+function renderGrid() {
+  const gridEl = document.getElementById("grid");
+  gridEl.innerHTML = "";
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const tile = grid[r][c];
+      const cell = document.createElement("div");
+      cell.classList.add("tile");
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      if (tile) {
+        cell.textContent = tile.letters.join("");
+        if (tile.id === selected) cell.classList.add("selected");
+        ["top","right","bottom","left"].forEach((side, idx) => {
+          const corner = document.createElement("div");
+          corner.classList.add("corner", side);
+          corner.style.background = tile.colors[idx];
+          cell.appendChild(corner);
+        });
+      }
+      cell.addEventListener("click", () => selectTile(r, c));
+      gridEl.appendChild(cell);
+    }
+  }
+}
+
+function selectTile(r, c) {
+  const tile = grid[r][c];
+  selected = tile ? tile.id : null;
+  renderGrid();
+}
+
+function handleKey(e) {
+  if (!selected) return;
+  const moves = {
+    ArrowUp:    { dr:-1, dc:0 },
+    ArrowDown:  { dr: 1, dc:0 },
+    ArrowLeft:  { dr: 0, dc:-1 },
+    ArrowRight: { dr: 0, dc: 1 }
+  };
+  if (moves[e.key]) {
+    e.preventDefault();
+    const {dr, dc} = moves[e.key];
+    const {r, c} = findTile(selected);
+    const nr = r + dr, nc = c + dc;
+    if (nr>=0&&nr<GRID_SIZE&&nc>=0&&nc<GRID_SIZE) {
+      attemptMove(r, c, nr, nc);
+    }
+  }
+}
+
+function findTile(id) {
+  for (let r=0; r<GRID_SIZE; r++) {
+    for (let c=0; c<GRID_SIZE; c++) {
+      if (grid[r][c]?.id === id) return {r,c};
+    }
+  }
+  return {};
+}
+
+function attemptMove(r, c, nr, nc) {
+  const mover = grid[r][c];
+  const target = grid[nr][nc];
+  if (!mover) return;
+  if (!target) {
+    grid[nr][nc] = mover;
+    grid[r][c] = null;
+    postMove();
+  } else if (canMerge(mover, target, r, c, nr, nc)) {
+    const merged = mergeTiles(mover, target, r, c, nr, nc);
+    grid[nr][nc] = merged;
+    grid[r][c] = null;
+    checkWord(merged, nr, nc);
+    postMove();
+  }
+}
+
+function canMerge(a, b, r, c, nr, nc) {
+  let sideA, sideB;
+  if (nr===r && nc===c+1)      { sideA=1; sideB=3; }
+  else if (nr===r && nc===c-1) { sideA=3; sideB=1; }
+  else if (nr===r-1 && nc===c) { sideA=0; sideB=2; }
+  else if (nr===r+1 && nc===c) { sideA=2; sideB=0; }
+  else return false;
+  return a.colors[sideA] === b.colors[sideB];
+}
+
+function mergeTiles(a, b, r, c, nr, nc) {
+  const order = (a.id === selected) ? [a,b] : [b,a];
+  const letters = order[0].letters.concat(order[1].letters);
+  // figure matched color
+  let matchedColor;
+  if (nr===r && nc===c+1)      matchedColor = a.colors[1];
+  else if (nr===r && nc===c-1) matchedColor = a.colors[3];
+  else if (nr===r-1 && nc===c) matchedColor = a.colors[0];
+  else                          matchedColor = a.colors[2];
+  const colors = mergeMap[matchedColor] 
+    || COLORS.slice().sort(() => 0.5 - Math.random());
+  return { letters, colors, id: Date.now() + Math.random() };
+}
+
+function checkWord(tile, r, c) {
+  const w = tile.letters.join("").toLowerCase();
+  if (tile.letters.length >= 4 && dictionary.has(w)) {
+    score += tile.letters.length;
+    document.getElementById("message").textContent = `"${w}"! +${tile.letters.length}`;
+    grid[r][c] = null;
+    setTimeout(()=>{
+      document.getElementById("message").textContent = "";
+      renderGrid();
+    }, 800);
+    updateScore();
+  }
+}
+
+function postMove() {
+  selected = null;
+  renderGrid();
+  spawnRandomTile();
+  updateScore();
+  if (isGameOver()) {
+    document.getElementById("message").textContent = "Game Over!";
+    document.removeEventListener("keydown", handleKey);
+  }
+}
+
+function spawnRandomTile() {
+  const empties = [];
+  for (let r=0; r<GRID_SIZE; r++)
+    for (let c=0; c<GRID_SIZE; c++)
+      if (!grid[r][c]) empties.push({r,c});
+  if (!empties.length) return;
+  const {r,c} = empties[Math.floor(Math.random()*empties.length)];
+  const letter = String.fromCharCode(65 + Math.floor(Math.random()*26));
+  const colors = Array(4).fill().map(() => COLORS[Math.floor(Math.random()*COLORS.length)]);
+  grid[r][c] = { letters: [letter], colors, id: Date.now()+Math.random() };
+}
+
+function updateScore() {
+  document.getElementById("score-value").textContent = score;
+}
+
+function isGameOver() {
+  for (let r=0; r<GRID_SIZE; r++) {
+    for (let c=0; c<GRID_SIZE; c++) {
+      const tile = grid[r][c];
+      if (!tile) continue;
+      for (let [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nr=r+dr, nc=c+dc;
+        if (nr>=0&&nr<GRID_SIZE&&nc>=0&&nc<GRID_SIZE && grid[nr][nc]) {
+          if (canMerge(tile, grid[nr][nc], r,c,nr,nc)) return false;
+        }
+      }
+    }
+  }
+  return true;
+}
