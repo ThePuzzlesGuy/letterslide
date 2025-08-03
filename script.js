@@ -169,17 +169,31 @@ function updateScore() {
 }
 
 function isGameOver() {
-  for (let r=0; r<GRID_SIZE; r++) {
-    for (let c=0; c<GRID_SIZE; c++) {
+  // 1) If there’s any empty cell, we’re definitely not done
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (!grid[r][c]) {
+        return false;
+      }
+    }
+  }
+
+  // 2) Now the grid is full—check for any possible adjacent merge
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
       const tile = grid[r][c];
-      if (!tile) continue;
-      for (let [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-        const nr=r+dr, nc=c+dc;
-        if (nr>=0&&nr<GRID_SIZE&&nc>=0&&nc<GRID_SIZE && grid[nr][nc]) {
-          if (canMerge(tile, grid[nr][nc], r,c,nr,nc)) return false;
+      // try each of the four directions
+      for (let [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+          if (canMerge(tile, grid[nr][nc], r, c, nr, nc)) {
+            return false;
+          }
         }
       }
     }
   }
+
+  // no empties and no merges → truly game over
   return true;
 }
