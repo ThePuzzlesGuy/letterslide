@@ -78,41 +78,40 @@ function slideMove(r, c, dr, dc) {
   const mover = grid[r][c];
   if (!mover) return;
 
-  let lastEmpty = null;
-  let nr = r + dr;
-  let nc = c + dc;
+  // Track the mover’s current position as it slides
+  let currR = r, currC = c;
 
-  // Step through cells in the direction until we go off-board
-  while (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+  while (true) {
+    const nr = currR + dr, nc = currC + dc;
+    // 1) Stop if off-board
+    if (nr < 0 || nr >= GRID_SIZE || nc < 0 || nc >= GRID_SIZE) break;
+
     const target = grid[nr][nc];
-
     if (!target) {
-      // Remember the furthest empty cell
-      lastEmpty = { r: nr, c: nc };
-      nr += dr;
-      nc += dc;
+      // 2) Empty: slide into it and continue
+      grid[currR][currC] = null;
+      grid[nr][nc] = mover;
+      currR = nr;
+      currC = nc;
       continue;
     }
 
-    // Occupied: check for merge
-    if (canMerge(mover, target, r, c, nr, nc)) {
-      // Perform merge at (nr,nc)
-      const merged = mergeTiles(mover, target, r, c, nr, nc);
+    // 3) Occupied: if mergeable, merge right here and end turn
+    if (canMerge(mover, target, currR, currC, nr, nc)) {
+      const merged = mergeTiles(mover, target, currR, currC, nr, nc);
       grid[nr][nc] = merged;
-      grid[r][c] = null;
+      grid[currR][currC] = null;
       checkWord(merged, nr, nc);
       postMove();
       return;
     }
 
-    // Occupied but cannot merge → stop before it
+    // 4) Occupied but NOT mergeable: stop sliding
     break;
   }
 
-  // No merge happened: if we saw at least one empty cell, move there
-  if (lastEmpty) {
-    grid[lastEmpty.r][lastEmpty.c] = mover;
-    grid[r][c] = null;
+  // 5) If we slid at least one cell (currR/currC moved), end turn
+  if (currR !== r || currC !== c) {
     postMove();
   }
 }
