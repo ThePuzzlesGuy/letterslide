@@ -184,14 +184,26 @@ function attemptMove(r, c, nr, nc) {
 }
 
 function mergeTiles(a, b, r, c, nr, nc) {
-  const order = (a.id === selected) ? [a,b] : [b,a];
-  const letters = order[0].letters.concat(order[1].letters);
-  const matchedColor = a.colors[ getMatchedSideIndex(r,c,nr,nc,a) ];
+  const order = (a.id === selected) ? [a, b] : [b, a];
+
+  // 1) Combine their letter arrays…
+  const rawLetters = order[0].letters.concat(order[1].letters);
+
+  // 2) …but drop anything that isn’t A–Z (so bombs/clearRow icons get removed)
+  const letters = rawLetters.filter(ch => /^[A-Z]$/.test(ch));
+
+  // 3) Figure out the matched color (same as before)
+  const matchedColor = a.colors[getMatchedSideIndex(r, c, nr, nc, a)];
   const colors = COLORS.slice().sort(() => 0.5 - Math.random());
-  const type = a.type==="bomb" || b.type==="bomb" ? "bomb"
-             : a.type==="clearRow" || b.type==="clearRow" ? "clearRow"
-             : undefined;
-  return { letters, colors, type, id: Date.now()+Math.random() };
+
+  // 4) Determine if this merged tile should carry a special type
+  const type = (a.type === "bomb" || b.type === "bomb")
+    ? "bomb"
+    : (a.type === "clearRow" || b.type === "clearRow")
+      ? "clearRow"
+      : undefined;
+
+  return { letters, colors, type, id: Date.now() + Math.random() };
 }
 
 function getMatchedSideIndex(r,c,nr,nc,tile){
