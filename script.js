@@ -182,9 +182,15 @@ function checkWord(tile, r, c) {
 
 function postMove() {
   selected = null;
-  renderGrid();
+
+  // 1) spawn the new tile into the grid data...
   spawnRandomTile();
   updateScore();
+
+  // 2) then redraw the board so it appears immediately
+  renderGrid();
+
+  // 3) finally check for game-over
   if (isGameOver()) {
     document.getElementById("message").textContent = "Game Over!";
     document.removeEventListener("keydown", handleKey);
