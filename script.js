@@ -4,7 +4,6 @@ const ORB_TARGET = 10;
 
 let grid      = [];
 let selected  = null;  // {r,c}
-let score     = 0;
 let orbCount  = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -14,7 +13,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // start with two random tiles
   spawnRandomTile();
   spawnRandomTile();
-  updateScore();
 
   initOrbsBar();
 
@@ -34,6 +32,7 @@ function initGrid() {
 function renderGrid() {
   const gridEl = document.getElementById("grid");
   gridEl.innerHTML = "";
+
   for (let r = 0; r < GRID_SIZE; r++) {
     for (let c = 0; c < GRID_SIZE; c++) {
       const cell = document.createElement("div");
@@ -110,8 +109,6 @@ function slideMove(r, c, dr, dc) {
       grid[currR][currC] = null;
       grid[nr][nc]       = null;
 
-      score++;
-      updateScore();
       addOrb();           // fill one orb
       spawnRandomTile();  // new tile
       renderGrid();
@@ -141,10 +138,6 @@ function spawnRandomTile() {
   grid[r][c] = {colors, id:Date.now()+Math.random()};
 }
 
-function updateScore() {
-  document.getElementById("score-value").textContent = score;
-}
-
 // ─── Pop Animation ────────────────────────────────────────────────────────
 function popTile(r,c) {
   const cell = document.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
@@ -155,6 +148,7 @@ function popTile(r,c) {
 
 // ─── Orbs Bar ───────────────────────────────────────────────────────────
 function initOrbsBar() {
+  orbCount = 0;
   const bar = document.getElementById("orbs-bar");
   bar.innerHTML = "";
   for (let i=0;i<ORB_TARGET;i++) {
@@ -171,7 +165,6 @@ function addOrb() {
   const orb   = document.createElement("div");
   orb.className = "orb";
   slot.appendChild(orb);
-  // trigger fall animation
   requestAnimationFrame(()=>orb.classList.add("filled"));
   orbCount++;
   if (orbCount === ORB_TARGET) {
