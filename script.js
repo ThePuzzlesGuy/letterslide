@@ -119,6 +119,9 @@ function spawnRandomTile() {
   grid[r][c]     = { color, id: Date.now() + Math.random() };
 }
 
+document.getElementById("game-container").setAttribute("tabindex","0");
+document.getElementById("game-container").focus();
+
 function updateScore() {
   document.getElementById("score-value").textContent = score;
 }
