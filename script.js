@@ -1,15 +1,20 @@
 const GRID_SIZE = 10;
 const COLORS = ["red", "green", "blue", "pink"];
-let dictionary = new Set();
-let mergeMap = {};
-let grid = [];
-let selected = null;
-let score = 0;
-let movesCount = 0;
+
+let dictionary   = new Set();
+let mergeMap     = {};
+let grid         = [];
+let selected     = null;
+let score        = 0;
+
+let movesCount   = 0;
 const PREMERGED_WORDS = ["ing","an","the","er","ed"];
-const VOWELS = ["A","E","I","O","U"];
-let targetWords = [];
-let letterPool = [];
+const VOWELS          = ["A","E","I","O","U"];
+
+let targetWords        = [];
+let letterPool         = [];
+let originalLetterPool = [];
+let foundWords         = new Set();
 
 document.addEventListener("DOMContentLoaded", () => {
   // load dictionary, merge-map, and your predetermined targets
@@ -43,7 +48,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // 4) build the spawn pool from those words
-    letterPool = targetWords.map(w => w.split("")).flat();
+letterPool = targetWords.map(w => w.split("")).flat();
+
+// capture the “full” pool so we can reset later
+originalLetterPool = letterPool.slice();
+// clear any prior foundWords
+foundWords.clear();
 
     // 5) init & start the game
     initGrid();
@@ -259,7 +269,7 @@ function postMove() {
   if (movesCount % 10 === 0) {
     spawnPremergedTile();
   } else {
-    spawnRandomTile();
+    Tile();
   }
 
   updateScore();
@@ -273,33 +283,30 @@ function postMove() {
 
 function spawnRandomTile() {
   const empties = getEmptyCells();
-  if (empties.length === 0) return;
-  const {r,c} = empties[Math.floor(Math.random() * empties.length)];
+  if (!empties.length) return;
 
-  // decide special tile first
+  const { r, c } = empties[Math.floor(Math.random() * empties.length)];
+
+  // preserve your bomb/clear-row roll
   const roll = Math.random();
   if (roll < 0.05) {
-    // 5% chance: BOMB
     grid[r][c] = makeBombTile();
     return;
   } else if (roll < 0.08) {
-    // next 3%: CLEAR-ROW
     grid[r][c] = makeClearRowTile();
     return;
   }
 
-  // otherwise a normal single‐letter, biasing vowels to 40%
-  let letter;
-  if (Math.random() < 0.4) {
-    letter = VOWELS[Math.floor(Math.random()*VOWELS.length)];
-  } else {
-    // pick random consonant
-    const consonants = "BCDFGHJKLMNPQRSTVWXYZ".split("");
-    letter = consonants[Math.floor(Math.random()*consonants.length)];
-  }
+  // now draw from our dynamic pool
+  const pool = getSpawnPool();
+  if (!pool.length) return;  // shouldn't happen, but safe-guard
 
-  const colors = Array(4).fill().map(() => COLORS[Math.floor(Math.random()*COLORS.length)]);
-  grid[r][c] = { letters: [letter], colors, id: Date.now()+Math.random() };
+  const letter = pool[Math.floor(Math.random() * pool.length)];
+  const colors = Array(4)
+    .fill()
+    .map(() => COLORS[Math.floor(Math.random() * COLORS.length)]);
+
+  grid[r][c] = { letters: [letter], colors, id: Date.now() + Math.random() };
 }
 
 function getEmptyCells() {
@@ -395,6 +402,18 @@ cell.addEventListener("click", () => {
     selectTile(r, c);
   }
 });
+
+function getSpawnPool() {
+  // if there are still target words left → only letters from those
+  if (foundWords.size < targetWords.length) {
+    return targetWords
+      .filter(w => !foundWords.has(w))
+      .map(w => w.split(""))
+      .flat();
+  }
+  // all targets found → reset to the original full pool
+  return originalLetterPool;
+}
 
 function updateScore() {
   document.getElementById("score-value").textContent = score;
