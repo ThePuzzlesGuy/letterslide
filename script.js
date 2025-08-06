@@ -178,42 +178,61 @@ function canMerge(a, b, r, c, nr, nc) {
 function mergeTiles(a, b, r, c, nr, nc) {
   const order = (a.id === selected) ? [a,b] : [b,a];
   const letters = order[0].letters.concat(order[1].letters);
-  // figure matched color
-  let matchedColor;
-  if (nr===r && nc===c+1)      matchedColor = a.colors[1];
-  else if (nr===r && nc===c-1) matchedColor = a.colors[3];
-  else if (nr===r-1 && nc===c) matchedColor = a.colors[0];
-  else                          matchedColor = a.colors[2];
-  const colors = mergeMap[matchedColor] 
-    || COLORS.slice().sort(() => 0.5 - Math.random());
-  return { letters, colors, id: Date.now() + Math.random() };
+  const matchedColor = a.colors[ getMatchedSideIndex(r,c,nr,nc,a) ];
+  const colors = COLORS.slice().sort(() => 0.5 - Math.random());
+  const type = a.type==="bomb" || b.type==="bomb" ? "bomb"
+             : a.type==="clearRow" || b.type==="clearRow" ? "clearRow"
+             : undefined;
+  return { letters, colors, type, id: Date.now()+Math.random() };
+}
+
+function getMatchedSideIndex(r,c,nr,nc,tile){
+  if (nr===r && nc===c+1) return 1;
+  if (nr===r && nc===c-1) return 3;
+  if (nr===r-1 && nc===c) return 0;
+  return 2;
 }
 
 function checkWord(tile, r, c) {
   const w = tile.letters.join("").toLowerCase();
-  if (tile.letters.length >= 4 && dictionary.has(w)) {
-    score += tile.letters.length;
-    document.getElementById("message").textContent = `"${w}"! +${tile.letters.length}`;
-    grid[r][c] = null;
-    setTimeout(()=>{
-      document.getElementById("message").textContent = "";
-      renderGrid();
-    }, 800);
-    updateScore();
+  if (!dictionary.has(w) || tile.letters.length < 4) return;
+
+  score += tile.letters.length;
+  document.getElementById("message").textContent = `"${w}"! +${tile.letters.length}`;
+
+  // if bomb, explode; if clearRow, clear lines; otherwise delete that tile
+  if (tile.type === "bomb") {
+    explode3x3(r,c);
+  } else if (tile.type === "clearRow") {
+    clearRowAndCol(r,c);
   }
+
+  grid[r][c] = null;
+  updateScore();
+  renderGrid();
+
+  // spawn wildcard every time a word is made
+  spawnWildcardTile();
+
+  // remove message after a short delay
+  setTimeout(() => document.getElementById("message").textContent = "", 800);
 }
+
 
 function postMove() {
   selected = null;
+  movesCount++;
 
-  // 1) spawn the new tile into the grid data...
-  spawnRandomTile();
+  // every 10 moves, spawn a PRE-MERGED tile
+  if (movesCount % 10 === 0) {
+    spawnPremergedTile();
+  } else {
+    spawnRandomTile();
+  }
+
   updateScore();
-
-  // 2) then redraw the board so it appears immediately
   renderGrid();
 
-  // 3) finally check for game-over
   if (isGameOver()) {
     document.getElementById("message").textContent = "Game Over!";
     document.removeEventListener("keydown", handleKey);
@@ -221,16 +240,129 @@ function postMove() {
 }
 
 function spawnRandomTile() {
+  const empties = getEmptyCells();
+  if (empties.length === 0) return;
+  const {r,c} = empties[Math.floor(Math.random() * empties.length)];
+
+  // decide special tile first
+  const roll = Math.random();
+  if (roll < 0.05) {
+    // 5% chance: BOMB
+    grid[r][c] = makeBombTile();
+    return;
+  } else if (roll < 0.08) {
+    // next 3%: CLEAR-ROW
+    grid[r][c] = makeClearRowTile();
+    return;
+  }
+
+  // otherwise a normal single‐letter, biasing vowels to 40%
+  let letter;
+  if (Math.random() < 0.4) {
+    letter = VOWELS[Math.floor(Math.random()*VOWELS.length)];
+  } else {
+    // pick random consonant
+    const consonants = "BCDFGHJKLMNPQRSTVWXYZ".split("");
+    letter = consonants[Math.floor(Math.random()*consonants.length)];
+  }
+
+  const colors = Array(4).fill().map(() => COLORS[Math.floor(Math.random()*COLORS.length)]);
+  grid[r][c] = { letters: [letter], colors, id: Date.now()+Math.random() };
+}
+
+function getEmptyCells() {
   const empties = [];
   for (let r=0; r<GRID_SIZE; r++)
     for (let c=0; c<GRID_SIZE; c++)
       if (!grid[r][c]) empties.push({r,c});
-  if (!empties.length) return;
-  const {r,c} = empties[Math.floor(Math.random()*empties.length)];
-  const letter = String.fromCharCode(65 + Math.floor(Math.random()*26));
-  const colors = Array(4).fill().map(() => COLORS[Math.floor(Math.random()*COLORS.length)]);
-  grid[r][c] = { letters: [letter], colors, id: Date.now()+Math.random() };
+  return empties;
 }
+
+function spawnPremergedTile() {
+  const empties = getEmptyCells();
+  if (empties.length === 0) return;
+  const {r,c} = empties[Math.floor(Math.random() * empties.length)];
+  const w = PREMERGED_WORDS[Math.floor(Math.random() * PREMERGED_WORDS.length)].toUpperCase();
+  const colors = Array(4).fill().map(() => COLORS[Math.floor(Math.random()*COLORS.length)]);
+  grid[r][c] = { letters: w.split(""), colors, id: Date.now()+Math.random() };
+}
+
+function makeBombTile(){
+  return {
+    type: "bomb",
+    letters: ["💣"],    // an icon for clarity
+    colors: ["rainbow","rainbow","rainbow","rainbow"],
+    id: Date.now()+Math.random()
+  };
+}
+
+function explode3x3(r,c) {
+  for (let dr=-1; dr<=1; dr++) {
+    for (let dc=-1; dc<=1; dc++) {
+      const nr=r+dr, nc=c+dc;
+      if (nr>=0&&nr<GRID_SIZE&&nc>=0&&nc<GRID_SIZE) {
+        grid[nr][nc] = null;
+      }
+    }
+  }
+}
+
+function clearRowAndCol(r,c) {
+  for (let i=0; i<GRID_SIZE; i++) {
+    grid[r][i] = null; // clear row
+    grid[i][c] = null; // clear column
+  }
+}
+
+function makeClearRowTile(){
+  return {
+    type: "clearRow",
+    letters: ["—"],    // just a dash
+    colors: ["gray","gray","gray","gray"],
+    id: Date.now()+Math.random()
+  };
+}
+
+function canMerge(a, b, r, c, nr, nc) {
+  let sideA, sideB;
+  if (nr===r && nc===c+1)      { sideA=1; sideB=3; }
+  else if (nr===r && nc===c-1) { sideA=3; sideB=1; }
+  else if (nr===r-1 && nc===c) { sideA=0; sideB=2; }
+  else if (nr===r+1 && nc===c) { sideA=2; sideB=0; }
+  else return false;
+
+  const colA = a.colors[sideA], colB = b.colors[sideB];
+  return colA === colB || colA === "rainbow" || colB === "rainbow";
+}
+
+function spawnWildcardTile() {
+  const empties = getEmptyCells();
+  if (empties.length === 0) return;
+  const {r,c} = empties[Math.floor(Math.random() * empties.length)];
+  grid[r][c] = {
+    type: "wildcard",
+    letters: ["?"],
+    colors: ["rainbow","rainbow","rainbow","rainbow"],
+    id: Date.now()+Math.random(),
+    assigned: false
+  };
+}
+
+// in renderGrid(), you already attach a click handler per cell.
+// Augment it to handle wildcard assignments:
+cell.addEventListener("click", () => {
+  const tile = grid[r][c];
+  if (tile?.type === "wildcard" && !tile.assigned) {
+    const letter = prompt("Enter the letter for this wildcard:")?.trim().toUpperCase();
+    if (letter && /^[A-Z]$/.test(letter)) {
+      tile.letters = [letter];
+      tile.assigned = true;
+      renderGrid();
+    }
+  } else {
+    selectTile(r, c);
+  }
+});
 
 function updateScore() {
   document.getElementById("score-value").textContent = score;
