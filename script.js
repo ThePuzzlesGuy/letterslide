@@ -10,42 +10,48 @@ const PREMERGED_WORDS = ["ing","an","the","er","ed"];
 const VOWELS = ["A","E","I","O","U"];
 
 document.addEventListener("DOMContentLoaded", () => {
-  Promise.all([
-    fetch("/data/dictionary.txt")
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.text();
-      }),
-    fetch("/data/merge-map.json")
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-  ])
-  .then(([dictText, mMap]) => {
-    // build a Set of lowercase words, trimming blank lines
-    dictionary = new Set(
-      dictText
-        .split(/\r?\n/)
-        .map(w => w.trim().toLowerCase())
-        .filter(w => w.length >= 4)
-    );
-    mergeMap = mMap;
+// script.js (inside DOMContentLoaded)
+Promise.all([
+  fetch("/data/dictionary.txt").then(r => r.text()),
+  fetch("/data/merge-map.json").then(r => r.json()),
+  fetch("/data/targets.txt").then(r => r.text())
+])
+.then(([dictText, mMap, targetsText]) => {
+  // 1) dictionary + mergeMap as before
+  dictionary = new Set(
+    dictText.split(/\r?\n/)
+      .map(w=>w.trim().toLowerCase())
+      .filter(w=>w.length>=4)
+  );
+  mergeMap = mMap;
 
-    initGrid();
-    renderGrid();
-    spawnRandomTile();
-    spawnRandomTile();
-    updateScore();
-
-    // now that grid is live, listen for key presses
-    document.addEventListener("keydown", handleKey);
-  })
-  .catch(err => {
-    console.error(err);
-    document.getElementById("message").textContent =
-      "Error loading data: " + err.message;
+  // 2) parse your predetermined words
+  targetWords = targetsText.split(/\r?\n/)
+    .map(w=>w.trim().toUpperCase())
+    .filter(w=>/^[A-Z]{3,}$/.test(w));
+  // 3) render side-panel list
+  const ul = document.getElementById("target-list");
+  ul.innerHTML = "";
+  targetWords.forEach(w => {
+    const li = document.createElement("li");
+    li.textContent = w;
+    li.id = "word-" + w;
+    ul.appendChild(li);
   });
+  // 4) build letterPool from those words
+  letterPool = targetWords.map(w=>w.split("")).flat();
+
+  // 5) init & start game
+  initGrid();
+  renderGrid();
+  spawnRandomTile(); spawnRandomTile();
+  updateScore();
+  document.addEventListener("keydown", handleKey);
+})
+.catch(err => {
+  console.error(err);
+  document.getElementById("message").textContent =
+    "Error loading data: " + err.message;
 });
 
 function initGrid() {
