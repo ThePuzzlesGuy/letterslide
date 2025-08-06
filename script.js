@@ -1,4 +1,4 @@
-const GRID_SIZE = 8;
+const GRID_SIZE = 5;
 const COLORS    = ["red","green","blue","pink"];
 const ORB_TARGET = 10;
 
