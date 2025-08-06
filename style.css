@@ -1,4 +1,3 @@
-/* ─── Base Reset ───────────────────────────────────────────────────────── */
 * {
   box-sizing: border-box;
 }
@@ -9,22 +8,18 @@ body {
   font-family: Arial, sans-serif;
   text-align: center;
   background: #fafafa;
-  user-select: none; /* prevent text selection while playing */
-  overflow: hidden;  /* stop arrow keys from scrolling */
+  user-select: none;
+  overflow: hidden;
 }
 
-/* ─── Game Container ───────────────────────────────────────────────────── */
 #game-container {
   display: inline-block;
-  outline: none;       /* we’ll focus this container to capture arrow keys */
 }
 
-/* When focused, no outline */
 #game-container:focus {
   outline: none;
 }
 
-/* ─── Grid Layout ──────────────────────────────────────────────────────── */
 #grid {
   display: grid;
   grid-template-columns: repeat(8, 60px);
@@ -32,15 +27,14 @@ body {
   gap: 5px;
 }
 
-/* ─── Tiles ────────────────────────────────────────────────────────────── */
 .tile {
   position: relative;
   width: 60px;
   height: 60px;
-  background: #eee;          /* base color for an empty cell */
+  background: #eee;
   border-radius: 8px;
-  cursor: pointer;
   transition: transform 0.1s ease;
+  cursor: pointer;
 }
 
 .tile.selected {
@@ -48,37 +42,27 @@ body {
   outline: 3px solid gold;
 }
 
-/* Side‐color bars */
-.tile .corner {
+.corner {
   position: absolute;
-  pointer-events: none; /* allow clicks to pass through to the cell */
+  pointer-events: none;
 }
-.tile .corner.top {
-  top:    0;
-  left:   0;
-  width:  100%;
-  height: 6px;
+.corner.top {
+  top: 0; left: 0;
+  width: 100%; height: 6px;
 }
-.tile .corner.bottom {
-  bottom: 0;
-  left:   0;
-  width:  100%;
-  height: 6px;
+.corner.bottom {
+  bottom: 0; left: 0;
+  width: 100%; height: 6px;
 }
-.tile .corner.left {
-  top:    0;
-  left:   0;
-  width:  6px;
-  height: 100%;
+.corner.left {
+  top: 0; left: 0;
+  width: 6px; height: 100%;
 }
-.tile .corner.right {
-  top:    0;
-  right:  0;
-  width:  6px;
-  height: 100%;
+.corner.right {
+  top: 0; right: 0;
+  width: 6px; height: 100%;
 }
 
-/* ─── UI Elements ───────────────────────────────────────────────────────── */
 #score {
   margin-top: 10px;
   font-size: 18px;
