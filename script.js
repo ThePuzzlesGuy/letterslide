@@ -5,6 +5,9 @@ let mergeMap = {};
 let grid = [];
 let selected = null;
 let score = 0;
+let movesCount = 0;
+const PREMERGED_WORDS = ["ing","an","the","er","ed"];
+const VOWELS = ["A","E","I","O","U"];
 
 document.addEventListener("DOMContentLoaded", () => {
   Promise.all([
@@ -69,7 +72,22 @@ function renderGrid() {
           cell.appendChild(corner);
         });
       }
-      cell.addEventListener("click", () => selectTile(r, c));
+cell.addEventListener("click", () => {
+  const tile = grid[r][c];
+  // if it’s an un-assigned wildcard, let the player pick its letter
+  if (tile?.type === "wildcard" && !tile.assigned) {
+    const letter = prompt("Pick a letter for this wildcard:")
+                     ?.trim().toUpperCase();
+    if (/^[A-Z]$/.test(letter)) {
+      tile.letters = [letter];
+      tile.assigned = true;
+      renderGrid();
+    }
+  } else {
+    selectTile(r, c);
+  }
+});
+
       gridEl.appendChild(cell);
     }
   }
@@ -163,16 +181,6 @@ function attemptMove(r, c, nr, nc) {
     checkWord(merged, nr, nc);
     postMove();
   }
-}
-
-function canMerge(a, b, r, c, nr, nc) {
-  let sideA, sideB;
-  if (nr===r && nc===c+1)      { sideA=1; sideB=3; }
-  else if (nr===r && nc===c-1) { sideA=3; sideB=1; }
-  else if (nr===r-1 && nc===c) { sideA=0; sideB=2; }
-  else if (nr===r+1 && nc===c) { sideA=2; sideB=0; }
-  else return false;
-  return a.colors[sideA] === b.colors[sideB];
 }
 
 function mergeTiles(a, b, r, c, nr, nc) {
