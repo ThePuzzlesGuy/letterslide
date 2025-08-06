@@ -36,29 +36,27 @@ body {
 }
 .tile .corner {
   position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
+  background: currentColor;
 }
 .tile .corner.top {
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.tile .corner.right {
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0; left: 0;
+  width: 100%;
+  height: 6px;              /* thickness of the colored bar */
 }
 .tile .corner.bottom {
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 0; left: 0;
+  width: 100%;
+  height: 6px;
 }
 .tile .corner.left {
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0; left: 0;
+  width: 6px;
+  height: 100%;
+}
+.tile .corner.right {
+  top: 0; right: 0;
+  width: 6px;
+  height: 100%;
 }
 #score {
   margin-top: 10px;
