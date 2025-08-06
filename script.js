@@ -1,4 +1,4 @@
-const GRID_SIZE = 10;
+const GRID_SIZE = 8;
 const COLORS = ["red", "green", "blue", "pink"];
 
 let dictionary   = new Set();
