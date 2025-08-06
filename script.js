@@ -7,10 +7,39 @@ let selected = null;
 let score = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
-  Promise.all([
-    fetch("/data/dictionary.json").then(res => res.json()),
-    fetch("/data/merge-map.json").then(res => res.json())
-  ]).then(([dict, mMap]) => {
+Promise.all([
+  fetch("/data/dictionary.txt")
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    }),
+  fetch("/data/merge-map.json")
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
+])
+.then(([dictText, mMap]) => {
+  // build a Set of lowercase words, trimming blank lines
+  dictionary = new Set(
+    dictText
+      .split(/\r?\n/)
+      .map(w => w.trim().toLowerCase())
+      .filter(w => w.length >= 4)
+  );
+  mergeMap = mMap;
+
+  initGrid();
+  renderGrid();
+  spawnRandomTile();
+  spawnRandomTile();
+  updateScore();
+})
+.catch(err => {
+  console.error(err);
+  document.getElementById("message").textContent =
+    "Error loading data: " + err.message;
+});
     dictionary = new Set(dict);
     mergeMap = mMap;
     initGrid();
