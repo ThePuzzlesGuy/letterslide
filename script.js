@@ -1,4 +1,4 @@
-const GRID_SIZE = 5;
+const GRID_SIZE = 10;
 const COLORS = ["red", "green", "blue", "pink"];
 let dictionary = new Set();
 let mergeMap = {};
