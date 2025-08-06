@@ -269,7 +269,7 @@ function postMove() {
   if (movesCount % 10 === 0) {
     spawnPremergedTile();
   } else {
-    Tile();
+    spawnRandomTile();   // ← correct!
   }
 
   updateScore();
@@ -386,22 +386,6 @@ function spawnWildcardTile() {
     assigned: false
   };
 }
-
-// in renderGrid(), you already attach a click handler per cell.
-// Augment it to handle wildcard assignments:
-cell.addEventListener("click", () => {
-  const tile = grid[r][c];
-  if (tile?.type === "wildcard" && !tile.assigned) {
-    const letter = prompt("Enter the letter for this wildcard:")?.trim().toUpperCase();
-    if (letter && /^[A-Z]$/.test(letter)) {
-      tile.letters = [letter];
-      tile.assigned = true;
-      renderGrid();
-    }
-  } else {
-    selectTile(r, c);
-  }
-});
 
 function getSpawnPool() {
   // if there are still target words left → only letters from those
