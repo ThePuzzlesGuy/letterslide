@@ -8,50 +8,56 @@ let score = 0;
 let movesCount = 0;
 const PREMERGED_WORDS = ["ing","an","the","er","ed"];
 const VOWELS = ["A","E","I","O","U"];
+let targetWords = [];
+let letterPool = [];
 
 document.addEventListener("DOMContentLoaded", () => {
-// script.js (inside DOMContentLoaded)
-Promise.all([
-  fetch("/data/dictionary.txt").then(r => r.text()),
-  fetch("/data/merge-map.json").then(r => r.json()),
-  fetch("/data/targets.txt").then(r => r.text())
-])
-.then(([dictText, mMap, targetsText]) => {
-  // 1) dictionary + mergeMap as before
-  dictionary = new Set(
-    dictText.split(/\r?\n/)
-      .map(w=>w.trim().toLowerCase())
-      .filter(w=>w.length>=4)
-  );
-  mergeMap = mMap;
+  // load dictionary, merge-map, and your predetermined targets
+  Promise.all([
+    fetch("/data/dictionary.txt").then(r => r.text()),
+    fetch("/data/merge-map.json").then(r => r.json()),
+    fetch("/data/targets.txt").then(r => r.text())
+  ])
+  .then(([dictText, mMap, targetsText]) => {
+    // 1) build dictionary & mergeMap
+    dictionary = new Set(
+      dictText.split(/\r?\n/)
+        .map(w => w.trim().toLowerCase())
+        .filter(w => w.length >= 4)
+    );
+    mergeMap = mMap;
 
-  // 2) parse your predetermined words
-  targetWords = targetsText.split(/\r?\n/)
-    .map(w=>w.trim().toUpperCase())
-    .filter(w=>/^[A-Z]{3,}$/.test(w));
-  // 3) render side-panel list
-  const ul = document.getElementById("target-list");
-  ul.innerHTML = "";
-  targetWords.forEach(w => {
-    const li = document.createElement("li");
-    li.textContent = w;
-    li.id = "word-" + w;
-    ul.appendChild(li);
+    // 2) parse your predetermined words
+    targetWords = targetsText.split(/\r?\n/)
+      .map(w => w.trim().toUpperCase())
+      .filter(w => /^[A-Z]{3,}$/.test(w));
+
+    // 3) render side-panel list
+    const ul = document.getElementById("target-list");
+    ul.innerHTML = "";
+    targetWords.forEach(w => {
+      const li = document.createElement("li");
+      li.textContent = w;
+      li.id = "word-" + w;
+      ul.appendChild(li);
+    });
+
+    // 4) build the spawn pool from those words
+    letterPool = targetWords.map(w => w.split("")).flat();
+
+    // 5) init & start the game
+    initGrid();
+    renderGrid();
+    spawnRandomTile();
+    spawnRandomTile();
+    updateScore();
+    document.addEventListener("keydown", handleKey);
+  })
+  .catch(err => {
+    console.error(err);
+    document.getElementById("message").textContent =
+      "Error loading data: " + err.message;
   });
-  // 4) build letterPool from those words
-  letterPool = targetWords.map(w=>w.split("")).flat();
-
-  // 5) init & start game
-  initGrid();
-  renderGrid();
-  spawnRandomTile(); spawnRandomTile();
-  updateScore();
-  document.addEventListener("keydown", handleKey);
-})
-.catch(err => {
-  console.error(err);
-  document.getElementById("message").textContent =
-    "Error loading data: " + err.message;
 });
 
 function initGrid() {
