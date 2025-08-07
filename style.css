@@ -8,6 +8,7 @@ body {
   background: #fafafa;
   user-select: none;
   text-align: center;
+  overflow: visible; /* allow flying orbs */
 }
 #game-container {
   display: inline-block;
@@ -30,17 +31,25 @@ body {
 }
 .orb {
   width: 100%;
-  height: 0;
+  height: 100%;
   background: gold;
   border-radius: 50%;
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  transition: height 0.3s ease, bottom 0.3s ease;
 }
-.orb.filled {
-  bottom: 0;
-  height: 100%;
+
+/* ─── Floating Orb ──────────────────────────────────────────────────────── */
+.floating-orb {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: gold;
+  border-radius: 50%;
+  pointer-events: none;
+  transition: transform 0.6s ease, opacity 0.6s ease;
+  opacity: 1;
+  z-index: 1000;
+}
+.floating-orb.fly {
+  opacity: 0;
 }
 
 /* ─── Grid & Tiles ─────────────────────────────────────────────────────── */
@@ -64,29 +73,24 @@ body {
   outline: 3px solid gold;
 }
 
-/* ─── Pop (“explode”) ───────────────────────────────────────────────────── */
-@keyframes explode {
-  0%   { transform: scale(1); opacity: 1; }
-  100% { transform: scale(2); opacity: 0; }
+/* ─── Merge Shake ───────────────────────────────────────────────────────── */
+@keyframes shake {
+  0%   { transform: translate(0,0) rotate(0deg); }
+  25%  { transform: translate(4px,0) rotate(2deg); }
+  50%  { transform: translate(-4px,0) rotate(-2deg); }
+  75%  { transform: translate(2px,0) rotate(1deg); }
+  100% { transform: translate(0,0) rotate(0deg); }
 }
-.tile.explode {
-  animation: explode 0.4s ease forwards;
+.tile.shake {
+  animation: shake 0.3s ease-in-out;
 }
 
-/* ─── Floating Orb ──────────────────────────────────────────────────────── */
-.floating-orb {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: gold;
-  border-radius: 50%;
-  pointer-events: none;
-  transition: transform 0.6s ease, opacity 0.6s ease;
-  opacity: 1;
+/* ─── Walls Blast ───────────────────────────────────────────────────────── */
+@keyframes blast {
+  to { transform: scale(2); opacity: 0; }
 }
-/* when we apply .fly, we move it via transform */
-.floating-orb.fly {
-  opacity: 0;
+.corner.blast {
+  animation: blast 0.4s ease-out forwards;
 }
 
 /* ─── Colored side-bars ─────────────────────────────────────────────────── */
@@ -95,20 +99,20 @@ body {
   pointer-events: none;
 }
 .corner.top {
-  top: 0;    left: 0;
-  width: 100%; height: 6px;
+  top:    0; left: 0;
+  width:  100%; height: 6px;
 }
 .corner.bottom {
   bottom: 0; left: 0;
-  width: 100%; height: 6px;
+  width:  100%; height: 6px;
 }
 .corner.left {
-  top: 0;    left: 0;
-  width: 6px;  height: 100%;
+  top:    0; left: 0;
+  width:  6px;  height: 100%;
 }
 .corner.right {
-  top: 0;    right: 0;
-  width: 6px;  height: 100%;
+  top:    0; right: 0;
+  width:  6px;  height: 100%;
 }
 
 #message {
