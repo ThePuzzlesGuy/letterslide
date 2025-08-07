@@ -2,15 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Color-Merge Puzzle</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color-2048</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="game-container">
-    <div id="orbs-bar"></div>
-    <div id="grid"></div>
-    <div id="message"></div>
+  <div id="game">
+    <div id="grid-container"></div>
+    <div id="info">
+      <button id="restart">Restart</button>
+      <div id="score">Score: <span id="score-value">0</span></div>
+      <div id="message"></div>
+    </div>
   </div>
   <script src="script.js"></script>
 </body>
