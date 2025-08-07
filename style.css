@@ -13,29 +13,25 @@ body {
   text-align: center;
 }
 #grid-container {
-  display: grid;
-  grid-template-columns: repeat(4, 80px);
-  grid-template-rows:    repeat(4, 80px);
-  gap: 10px;
+  position: relative;
+  width: 4 * 80px + 3 * 10px;  /* 4 tiles + 3 gaps */
+  height: 4 * 80px + 3 * 10px;
   background: #bbada0;
   padding: 10px;
   border-radius: 8px;
 }
 .tile {
+  position: absolute;
   width: 80px; height: 80px;
   border-radius: 4px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 24px;
-  font-weight: bold;
-  color: #fff;
-  transition: background 0.2s, transform 0.2s;
+  transition: transform 0.2s ease, background 0.2s ease;
 }
-.tile.new { animation: pop 0.2s ease; }
+.tile.scale {
+  animation: pop 0.2s ease;
+}
 @keyframes pop {
-  0%   { transform: scale(0.3); }
-  100% { transform: scale(1); }
+  from { transform: scale(0.5); }
+  to   { transform: scale(1); }
 }
 #info {
   margin-top: 20px;
