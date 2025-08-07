@@ -16,11 +16,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initOrbsBar();
 
-  // focus container for arrow‐keys
-  const container = document.getElementById("game-container");
-  container.setAttribute("tabindex","0");
-  container.focus();
-  container.addEventListener("keydown", handleKey);
+  // listen globally for arrow-keys
+  document.addEventListener("keydown", handleKey);
 });
 
 function initGrid() {
@@ -45,7 +42,6 @@ function renderGrid() {
         if (selected && selected.r===r && selected.c===c) {
           cell.classList.add("selected");
         }
-        // draw four side‐bars
         ["top","right","bottom","left"].forEach((side, idx) => {
           const bar = document.createElement("div");
           bar.className = `corner ${side}`;
@@ -55,11 +51,7 @@ function renderGrid() {
       }
 
       cell.addEventListener("click", () => {
-        if (grid[r][c]) {
-          selected = {r,c};
-        } else {
-          selected = null;
-        }
+        selected = tile ? {r,c} : null;
         renderGrid();
       });
 
@@ -99,18 +91,13 @@ function slideMove(r, c, dr, dc) {
       continue;
     }
 
-    // match if any side-color overlaps
     const shared = mover.colors.some(col => target.colors.includes(col));
     if (shared) {
-      // pop animation
       popTile(nr,nc);
-
-      // remove both
       grid[currR][currC] = null;
       grid[nr][nc]       = null;
-
-      addOrb();           // fill one orb
-      spawnRandomTile();  // new tile
+      addOrb();
+      spawnRandomTile();
       renderGrid();
     }
     break;
@@ -133,12 +120,10 @@ function spawnRandomTile() {
   }
   if (!empties.length) return;
   const {r,c} = empties[Math.floor(Math.random()*empties.length)];
-  const colors = Array(4).fill()
-    .map(_=>COLORS[Math.floor(Math.random()*COLORS.length)]);
-  grid[r][c] = {colors, id:Date.now()+Math.random()};
+  const colors = Array(4).fill().map(_=>COLORS[Math.floor(Math.random()*COLORS.length)]);
+  grid[r][c] = {colors};
 }
 
-// ─── Pop Animation ────────────────────────────────────────────────────────
 function popTile(r,c) {
   const cell = document.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
   if (!cell) return;
@@ -146,12 +131,11 @@ function popTile(r,c) {
   setTimeout(()=>cell.classList.remove("pop"), 300);
 }
 
-// ─── Orbs Bar ───────────────────────────────────────────────────────────
 function initOrbsBar() {
   orbCount = 0;
   const bar = document.getElementById("orbs-bar");
   bar.innerHTML = "";
-  for (let i=0;i<ORB_TARGET;i++) {
+  for (let i=0; i<ORB_TARGET; i++){
     const slot = document.createElement("div");
     slot.className = "orb-slot";
     bar.appendChild(slot);
