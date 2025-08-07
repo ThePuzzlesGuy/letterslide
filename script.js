@@ -1,10 +1,10 @@
-const GRID_SIZE = 5;
-const COLORS    = ["red","green","blue","pink"];
+const GRID_SIZE  = 5;
+const COLORS     = ["red","green","blue","pink"];
 const ORB_TARGET = 10;
 
-let grid      = [];
-let selected  = null;  // {r,c}
-let orbCount  = 0;
+let grid     = [];
+let selected = null;  // {r,c}
+let orbCount = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
   initGrid();
@@ -42,6 +42,7 @@ function renderGrid() {
         if (selected && selected.r===r && selected.c===c) {
           cell.classList.add("selected");
         }
+        // draw four side-bars
         ["top","right","bottom","left"].forEach((side, idx) => {
           const bar = document.createElement("div");
           bar.className = `corner ${side}`;
@@ -84,6 +85,7 @@ function slideMove(r, c, dr, dc) {
 
     const target = grid[nr][nc];
     if (!target) {
+      // just slide
       grid[currR][currC] = null;
       grid[nr][nc]       = mover;
       currR = nr; currC = nc;
@@ -91,14 +93,25 @@ function slideMove(r, c, dr, dc) {
       continue;
     }
 
+    // match if any side-color overlaps
     const shared = mover.colors.some(col => target.colors.includes(col));
     if (shared) {
-      popTile(nr,nc);
-      grid[currR][currC] = null;
-      grid[nr][nc]       = null;
-      addOrb();
-      spawnRandomTile();
-      renderGrid();
+      // 1) show explosion on the target cell
+      const targetEl = document.querySelector(
+        `.tile[data-r="${nr}"][data-c="${nc}"]`
+      );
+      targetEl.classList.add("explode");
+
+      // 2) spawn a flying orb from that position
+      flyOrb(nr, nc);
+
+      // 3) remove both tiles *after* explosion animation
+      setTimeout(() => {
+        grid[currR][currC] = null;
+        grid[nr][nc]       = null;
+        spawnRandomTile();
+        renderGrid();
+      }, 400);
     }
     break;
   }
@@ -108,7 +121,44 @@ function slideMove(r, c, dr, dc) {
     renderGrid();
   }
   selected = null;
-  renderGrid();
+  setTimeout(renderGrid, 0);
+}
+
+// create a flying orb from cell (r,c) to the next orb-slot
+function flyOrb(r, c) {
+  const cellEl = document.querySelector(
+    `.tile[data-r="${r}"][data-c="${c}"]`
+  );
+  const slotEl = document.querySelectorAll(".orb-slot")[orbCount];
+  if (!cellEl || !slotEl) return;
+
+  // get centers
+  const cellRect = cellEl.getBoundingClientRect();
+  const slotRect = slotEl.getBoundingClientRect();
+  const orbEl = document.createElement("div");
+  orbEl.className = "floating-orb";
+  document.body.appendChild(orbEl);
+
+  // place at cell center
+  orbEl.style.transform = `translate(${cellRect.left + cellRect.width/2 - 10}px, ${cellRect.top + cellRect.height/2 - 10}px)`;
+
+  // trigger fly to slot
+  requestAnimationFrame(() => {
+    orbEl.classList.add("fly");
+    orbEl.style.transform = `translate(${slotRect.left + slotRect.width/2 - 10}px, ${slotRect.top + slotRect.height/2 - 10}px)`;
+  });
+
+  orbEl.addEventListener("transitionend", () => {
+    orbEl.remove();
+    // finally fill the orb-slot
+    const staticOrb = document.createElement("div");
+    staticOrb.className = "orb filled";
+    slotEl.appendChild(staticOrb);
+    orbCount++;
+    if (orbCount === ORB_TARGET) {
+      document.getElementById("message").textContent = "🎉 You Win! 🎉";
+    }
+  }, { once: true });
 }
 
 function spawnRandomTile() {
@@ -120,15 +170,10 @@ function spawnRandomTile() {
   }
   if (!empties.length) return;
   const {r,c} = empties[Math.floor(Math.random()*empties.length)];
-  const colors = Array(4).fill().map(_=>COLORS[Math.floor(Math.random()*COLORS.length)]);
-  grid[r][c] = {colors};
-}
-
-function popTile(r,c) {
-  const cell = document.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
-  if (!cell) return;
-  cell.classList.add("pop");
-  setTimeout(()=>cell.classList.remove("pop"), 300);
+  const colors = Array(4).fill().map(
+    () => COLORS[Math.floor(Math.random()*COLORS.length)]
+  );
+  grid[r][c] = { colors };
 }
 
 function initOrbsBar() {
@@ -139,19 +184,5 @@ function initOrbsBar() {
     const slot = document.createElement("div");
     slot.className = "orb-slot";
     bar.appendChild(slot);
-  }
-}
-
-function addOrb() {
-  if (orbCount >= ORB_TARGET) return;
-  const slots = document.querySelectorAll(".orb-slot");
-  const slot  = slots[orbCount];
-  const orb   = document.createElement("div");
-  orb.className = "orb";
-  slot.appendChild(orb);
-  requestAnimationFrame(()=>orb.classList.add("filled"));
-  orbCount++;
-  if (orbCount === ORB_TARGET) {
-    document.getElementById("message").textContent = "🎉 You Win! 🎉";
   }
 }
