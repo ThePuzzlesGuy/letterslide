@@ -1,11 +1,13 @@
+// script.js
+
 const GRID_SIZE  = 5;
 const COLORS     = ["red","green","blue","pink"];
 const ORB_TARGET = 10;
 
-let grid      = [];
-let selected  = null;
-let orbCount  = 0;
-let orbSlots  = [];      // will hold DOMRect centers of each orb-slot
+let grid     = [];
+let selected = null;
+let orbCount = 0;
+let orbSlots = [];  // screen positions of orb-slots
 
 document.addEventListener("DOMContentLoaded", () => {
   initGrid();
@@ -27,7 +29,8 @@ function renderGrid() {
     for (let c=0; c<GRID_SIZE; c++) {
       const cell = document.createElement("div");
       cell.className = "tile";
-      cell.dataset.r = r; cell.dataset.c = c;
+      cell.dataset.r = r;
+      cell.dataset.c = c;
       const tile = grid[r][c];
       if (tile) {
         if (selected && selected.r===r && selected.c===c) {
@@ -64,137 +67,135 @@ function handleKey(e) {
 async function slideMove(r, c, dr, dc) {
   const mover = grid[r][c];
   if (!mover) return;
-  let currR=r, currC=c, moved=false;
-
+  let cr=r, cc=c, moved=false;
   while (true) {
-    const nr=currR+dr, nc=currC+dc;
+    const nr=cr+dr, nc=cc+dc;
     if (nr<0||nr>=GRID_SIZE||nc<0||nc>=GRID_SIZE) break;
     const target = grid[nr][nc];
     if (!target) {
-      grid[currR][currC]=null;
-      grid[nr][nc]=mover;
-      currR=nr; currC=nc;
+      grid[cr][cc] = null;
+      grid[nr][nc] = mover;
+      cr=nr; cc=nc;
       moved=true;
       continue;
     }
-    // check side-color overlap
+    // check shared side-color
     if (mover.colors.some(col=>target.colors.includes(col))) {
-      // animate merge
-      await animateMerge(currR,currC,nr,nc);
-      // fly orb
+      // 1) overlap & shake
+      await animateOverlapShake(cr,cc,nr,nc);
+      // 2) burst fragments
+      burstAt(nr,nc);
+      // 3) fly orb
       await flyOrb(nr,nc);
-      // remove tiles, spawn new
-      grid[currR][currC]=null;
-      grid[nr][nc]=null;
+      // 4) remove & refill
+      grid[cr][cc] = null;
+      grid[nr][nc] = null;
       spawnRandomTile();
       break;
     }
     break;
   }
-
-  if (moved) spawnRandomTile();
+  if (moved) { spawnRandomTile(); }
   selected = null;
   renderGrid();
 }
 
-function animateMerge(r1,c1,r2,c2) {
+function animateOverlapShake(r1,c1,r2,c2){
   return new Promise(res=>{
     const sel1 = `.tile[data-r="${r1}"][data-c="${c1}"]`;
     const sel2 = `.tile[data-r="${r2}"][data-c="${c2}"]`;
     const e1 = document.querySelector(sel1);
     const e2 = document.querySelector(sel2);
     if (!e1||!e2) return res();
-
-    // compute midpoint translation
+    // overlay at midpoint
     const b1=e1.getBoundingClientRect(), b2=e2.getBoundingClientRect();
-    const midX=(b1.left+b1.right + b2.left+b2.right)/4;
-    const midY=(b1.top+b1.bottom + b2.top+b2.bottom)/4;
-    const dx1=midX-(b1.left+b1.width/2), dy1=midY-(b1.top+b1.height/2);
-    const dx2=midX-(b2.left+b2.width/2), dy2=midY-(b2.top+b2.height/2);
-
-    // move both
+    const dx1=(b2.left - b1.left)/2, dy1=(b2.top - b1.top)/2;
+    const dx2=(b1.left - b2.left)/2, dy2=(b1.top - b2.top)/2;
     [e1,e2].forEach(el=>{
-      el.style.transition="transform 0.4s ease";
+      el.style.transition="transform 0.3s ease";
     });
     e1.style.transform = `translate(${dx1}px,${dy1}px)`;
     e2.style.transform = `translate(${dx2}px,${dy2}px)`;
-
     setTimeout(()=>{
-      // shake
-      e1.classList.add("shake");
-      e2.classList.add("shake");
+      [e1,e2].forEach(el=>{
+        el.classList.add("shake");
+      });
       setTimeout(()=>{
-        // blast walls
         [e1,e2].forEach(el=>{
-          el.querySelectorAll(".corner").forEach(bar=>bar.classList.add("blast"));
+          el.style.transition="";
+          el.style.transform="";
+          el.classList.remove("shake");
         });
-        setTimeout(()=>{
-          // cleanup transforms & classes
-          [e1,e2].forEach(el=>{
-            el.style.transition="";
-            el.style.transform="";
-            el.classList.remove("shake");
-            el.querySelectorAll(".corner").forEach(bar=>bar.classList.remove("blast"));
-          });
-          res();
-        },400);
+        res();
       },300);
-    },400);
+    },300);
   });
 }
 
-function initOrbsBar() {
-  orbCount = 0;
-  const bar = document.getElementById("orbs-bar");
-  bar.innerHTML="";
-  for (let i=0;i<ORB_TARGET;i++){
-    const slot=document.createElement("div");
-    slot.className="orb-slot";
-    bar.appendChild(slot);
+function burstAt(r,c) {
+  const cell = document.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
+  if (!cell) return;
+  const rect = cell.getBoundingClientRect();
+  for (let i=0;i<12;i++){
+    const frag = document.createElement("div");
+    frag.className="fragment";
+    const angle = Math.random()*2*Math.PI;
+    const dist = 40 + Math.random()*20;
+    frag.style.setProperty("--dx", `${Math.cos(angle)*dist}px`);
+    frag.style.setProperty("--dy", `${Math.sin(angle)*dist}px`);
+    frag.style.left = `${rect.left + rect.width/2 -4}px`;
+    frag.style.top  = `${rect.top  + rect.height/2 -4}px`;
+    document.body.appendChild(frag);
+    frag.addEventListener("animationend", ()=>frag.remove(), {once:true});
   }
-  // record slot centers
-  orbSlots = Array.from(document.querySelectorAll(".orb-slot"))
-    .map(el=>{
-      const r=el.getBoundingClientRect();
-      return { x:r.left+r.width/2-10, y:r.top+r.height/2-10 };
-    });
 }
 
-function flyOrb(r,c) {
+function initOrbsBar() {
+  orbCount=0;
+  const bar=document.getElementById("orbs-bar");
+  bar.innerHTML="";
+  for (let i=0;i<ORB_TARGET;i++){
+    const s=document.createElement("div");
+    s.className="orb-slot";
+    bar.appendChild(s);
+  }
+  orbSlots = Array.from(bar.children).map(el=>{
+    const r=el.getBoundingClientRect();
+    return {x:r.left+r.width/2-10, y:r.top+r.height/2-10};
+  });
+}
+
+function flyOrb(r,c){
   return new Promise(res=>{
     if (orbCount>=ORB_TARGET) return res();
-    const cellEl = document.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
-    const pos = orbSlots[orbCount];
-    if (!cellEl||!pos) return res();
-
+    const cell = document.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
+    if (!cell) return res();
     const orb = document.createElement("div");
     orb.className="floating-orb";
     document.body.appendChild(orb);
-
-    const cb=cellEl.getBoundingClientRect();
-    orb.style.transform=`translate(${cb.left+cb.width/2-10}px,${cb.top+cb.height/2-10}px)`;
-
+    const cr=cell.getBoundingClientRect();
+    orb.style.transform=`translate(${cr.left+cr.width/2-10}px,${cr.top+cr.height/2-10}px)`;
+    const dest = orbSlots[orbCount];
     requestAnimationFrame(()=>{
       orb.classList.add("fly");
-      orb.style.transform=`translate(${pos.x}px,${pos.y}px)`;
+      orb.style.transform=`translate(${dest.x}px,${dest.y}px)`;
     });
-
     orb.addEventListener("transitionend", ()=>{
       orb.remove();
-      const slotEl = document.querySelectorAll(".orb-slot")[orbCount];
-      const staticOrb=document.createElement("div");
-      staticOrb.className="orb";
-      slotEl.appendChild(staticOrb);
+      const slot = document.querySelectorAll(".orb-slot")[orbCount];
+      const sOrb = document.createElement("div");
+      sOrb.className="orb";
+      slot.appendChild(sOrb);
       orbCount++;
       if (orbCount===ORB_TARGET) {
         document.getElementById("message").textContent="🎉 You Win! 🎉";
       }
       res();
-    },{once:true});
+    }, {once:true});
   });
 }
 
-function spawnRandomTile() {
+function spawnRandomTile(){
   const empties=[];
   for (let r=0;r<GRID_SIZE;r++){
     for (let c=0;c<GRID_SIZE;c++){
@@ -203,7 +204,7 @@ function spawnRandomTile() {
   }
   if (!empties.length) return;
   const {r,c}=empties[Math.floor(Math.random()*empties.length)];
-  const colors=Array(4).fill().map(_=>COLORS[Math.floor(Math.random()*COLORS.length)]);
-  grid[r][c]={colors};
+  const cols=Array(4).fill().map(_=>COLORS[Math.floor(Math.random()*COLORS.length)]);
+  grid[r][c]={colors:cols};
   renderGrid();
 }
