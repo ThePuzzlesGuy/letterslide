@@ -1,25 +1,26 @@
+/* style.css */
+
 * { box-sizing: border-box; }
 body {
-  margin: 0; padding: 20px;
+  margin:0; padding:20px;
   font-family: Arial, sans-serif;
-  background: #fafafa;
-  user-select: none;
-  text-align: center;
+  background:#fafafa;
+  text-align:center;
   overflow: visible;
+  user-select: none;
 }
-#game-container { display: inline-block; }
+#game-container { display:inline-block; }
 
-/* Orbs Bar */
-#orbs-bar { margin-bottom: 10px; }
+/* ─ Orbs Bar ───────────────────────────────────────── */
+#orbs-bar { margin-bottom:10px; }
 .orb-slot {
   display:inline-block;
   width:20px; height:20px;
   margin:0 4px;
   background:#ddd;
   border-radius:50%;
-  overflow:hidden;
   position:relative;
-  vertical-align:middle;
+  overflow:hidden;
 }
 .orb {
   width:100%; height:100%;
@@ -27,7 +28,7 @@ body {
   border-radius:50%;
 }
 
-/* Floating orb */
+/* ─ Floating orb ───────────────────────────────────────── */
 .floating-orb {
   position:absolute;
   width:20px; height:20px;
@@ -39,11 +40,11 @@ body {
 }
 .floating-orb.fly { opacity:0; }
 
-/* Grid & Tiles */
+/* ─ Grid & Tiles ───────────────────────────────────────── */
 #grid {
-  display: grid;
-  grid-template-columns: repeat(5,60px);
-  grid-template-rows:    repeat(5,60px);
+  display:grid;
+  grid-template-columns:repeat(5,60px);
+  grid-template-rows:   repeat(5,60px);
   gap:5px;
 }
 .tile {
@@ -52,32 +53,46 @@ body {
   background:#eee;
   border-radius:8px;
   cursor:pointer;
+  overflow:hidden;
 }
 .tile.selected {
-  transform: scale(1.1);
-  outline: 3px solid gold;
-  transition: transform 0.1s;
+  transform:scale(1.1);
+  outline:3px solid gold;
+  transition:transform 0.1s;
 }
 
-/* Shake animation */
+/* ─ Shake ─────────────────────────────────────────────── */
 @keyframes shake {
-  0% { transform: translate(0,0) rotate(0); }
-  25% { transform: translate(4px,0) rotate(2deg); }
-  50% { transform: translate(-4px,0) rotate(-2deg); }
-  75% { transform: translate(2px,0) rotate(1deg); }
+  0%   { transform: translate(0,0) rotate(0); }
+  25%  { transform: translate(4px,0) rotate(2deg); }
+  50%  { transform: translate(-4px,0) rotate(-2deg); }
+  75%  { transform: translate(2px,0) rotate(1deg); }
   100% { transform: translate(0,0) rotate(0); }
 }
-.tile.shake { animation: shake 0.3s ease-in-out; }
-
-/* Blast walls */
-@keyframes blast {
-  to { transform: scale(2); opacity:0; }
+.tile.shake {
+  animation: shake 0.3s ease-in-out;
 }
-.corner.blast { animation: blast 0.4s ease-out forwards; }
 
-/* Side bars */
+/* ─ Burst Fragments ──────────────────────────────────── */
+.fragment {
+  position:absolute;
+  width:8px; height:8px;
+  background:gold;
+  border-radius:50%;
+  pointer-events:none;
+  animation: burst 0.6s ease-out forwards;
+}
+@keyframes burst {
+  to {
+    transform: translate(var(--dx), var(--dy)) scale(0.1);
+    opacity:0;
+  }
+}
+
+/* ─ Colored side-bars ─────────────────────────────────── */
 .corner {
-  position:absolute; pointer-events:none;
+  position:absolute;
+  pointer-events:none;
 }
 .corner.top    { top:0;    left:0;    width:100%; height:6px; }
 .corner.bottom { bottom:0; left:0;    width:100%; height:6px; }
