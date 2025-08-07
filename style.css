@@ -1,122 +1,91 @@
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 body {
-  margin: 0;
-  padding: 20px;
+  margin: 0; padding: 20px;
   font-family: Arial, sans-serif;
   background: #fafafa;
   user-select: none;
   text-align: center;
-  overflow: visible; /* allow flying orbs */
+  overflow: visible;
 }
-#game-container {
-  display: inline-block;
-}
+#game-container { display: inline-block; }
 
-/* ─── Orbs Bar ─────────────────────────────────────────────────────────── */
-#orbs-bar {
-  margin-bottom: 10px;
-}
+/* Orbs Bar */
+#orbs-bar { margin-bottom: 10px; }
 .orb-slot {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  margin: 0 4px;
-  background: #ddd;
-  border-radius: 50%;
-  overflow: hidden;
-  position: relative;
-  vertical-align: middle;
+  display:inline-block;
+  width:20px; height:20px;
+  margin:0 4px;
+  background:#ddd;
+  border-radius:50%;
+  overflow:hidden;
+  position:relative;
+  vertical-align:middle;
 }
 .orb {
-  width: 100%;
-  height: 100%;
-  background: gold;
-  border-radius: 50%;
+  width:100%; height:100%;
+  background:gold;
+  border-radius:50%;
 }
 
-/* ─── Floating Orb ──────────────────────────────────────────────────────── */
+/* Floating orb */
 .floating-orb {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: gold;
-  border-radius: 50%;
-  pointer-events: none;
+  position:absolute;
+  width:20px; height:20px;
+  background:gold;
+  border-radius:50%;
+  pointer-events:none;
   transition: transform 0.6s ease, opacity 0.6s ease;
-  opacity: 1;
-  z-index: 1000;
+  opacity:1; z-index:1000;
 }
-.floating-orb.fly {
-  opacity: 0;
-}
+.floating-orb.fly { opacity:0; }
 
-/* ─── Grid & Tiles ─────────────────────────────────────────────────────── */
+/* Grid & Tiles */
 #grid {
   display: grid;
-  grid-template-columns: repeat(5, 60px);
-  grid-template-rows:    repeat(5, 60px);
-  gap: 5px;
+  grid-template-columns: repeat(5,60px);
+  grid-template-rows:    repeat(5,60px);
+  gap:5px;
 }
 .tile {
-  position: relative;
-  width: 60px;
-  height: 60px;
-  background: #eee;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.1s ease;
+  position:relative;
+  width:60px; height:60px;
+  background:#eee;
+  border-radius:8px;
+  cursor:pointer;
 }
 .tile.selected {
   transform: scale(1.1);
   outline: 3px solid gold;
+  transition: transform 0.1s;
 }
 
-/* ─── Merge Shake ───────────────────────────────────────────────────────── */
+/* Shake animation */
 @keyframes shake {
-  0%   { transform: translate(0,0) rotate(0deg); }
-  25%  { transform: translate(4px,0) rotate(2deg); }
-  50%  { transform: translate(-4px,0) rotate(-2deg); }
-  75%  { transform: translate(2px,0) rotate(1deg); }
-  100% { transform: translate(0,0) rotate(0deg); }
+  0% { transform: translate(0,0) rotate(0); }
+  25% { transform: translate(4px,0) rotate(2deg); }
+  50% { transform: translate(-4px,0) rotate(-2deg); }
+  75% { transform: translate(2px,0) rotate(1deg); }
+  100% { transform: translate(0,0) rotate(0); }
 }
-.tile.shake {
-  animation: shake 0.3s ease-in-out;
-}
+.tile.shake { animation: shake 0.3s ease-in-out; }
 
-/* ─── Walls Blast ───────────────────────────────────────────────────────── */
+/* Blast walls */
 @keyframes blast {
-  to { transform: scale(2); opacity: 0; }
+  to { transform: scale(2); opacity:0; }
 }
-.corner.blast {
-  animation: blast 0.4s ease-out forwards;
-}
+.corner.blast { animation: blast 0.4s ease-out forwards; }
 
-/* ─── Colored side-bars ─────────────────────────────────────────────────── */
+/* Side bars */
 .corner {
-  position: absolute;
-  pointer-events: none;
+  position:absolute; pointer-events:none;
 }
-.corner.top {
-  top:    0; left: 0;
-  width:  100%; height: 6px;
-}
-.corner.bottom {
-  bottom: 0; left: 0;
-  width:  100%; height: 6px;
-}
-.corner.left {
-  top:    0; left: 0;
-  width:  6px;  height: 100%;
-}
-.corner.right {
-  top:    0; right: 0;
-  width:  6px;  height: 100%;
-}
+.corner.top    { top:0;    left:0;    width:100%; height:6px; }
+.corner.bottom { bottom:0; left:0;    width:100%; height:6px; }
+.corner.left   { top:0;    left:0;    width:6px;   height:100%; }
+.corner.right  { top:0;    right:0;   width:6px;   height:100%; }
 
 #message {
-  margin-top: 10px;
-  font-size: 16px;
-  color: red;
+  margin-top:10px;
+  font-size:16px;
+  color:red;
 }
