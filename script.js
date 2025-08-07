@@ -3,7 +3,7 @@ const COLORS     = ["red","green","blue","pink"];
 const ORB_TARGET = 10;
 
 let grid     = [];
-let selected = null;  // {r,c}
+let selected = null;
 let orbCount = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initOrbsBar();
 
-  // listen globally for arrow-keys
+  // listen for arrow-keys
   document.addEventListener("keydown", handleKey);
 });
 
@@ -29,9 +29,8 @@ function initGrid() {
 function renderGrid() {
   const gridEl = document.getElementById("grid");
   gridEl.innerHTML = "";
-
-  for (let r = 0; r < GRID_SIZE; r++) {
-    for (let c = 0; c < GRID_SIZE; c++) {
+  for (let r=0; r<GRID_SIZE; r++) {
+    for (let c=0; c<GRID_SIZE; c++) {
       const cell = document.createElement("div");
       cell.className = "tile";
       cell.dataset.r = r;
@@ -42,7 +41,6 @@ function renderGrid() {
         if (selected && selected.r===r && selected.c===c) {
           cell.classList.add("selected");
         }
-        // draw four side-bars
         ["top","right","bottom","left"].forEach((side, idx) => {
           const bar = document.createElement("div");
           bar.className = `corner ${side}`;
@@ -85,7 +83,6 @@ function slideMove(r, c, dr, dc) {
 
     const target = grid[nr][nc];
     if (!target) {
-      // just slide
       grid[currR][currC] = null;
       grid[nr][nc]       = mover;
       currR = nr; currC = nc;
@@ -96,22 +93,16 @@ function slideMove(r, c, dr, dc) {
     // match if any side-color overlaps
     const shared = mover.colors.some(col => target.colors.includes(col));
     if (shared) {
-      // 1) show explosion on the target cell
-      const targetEl = document.querySelector(
-        `.tile[data-r="${nr}"][data-c="${nc}"]`
-      );
-      targetEl.classList.add("explode");
-
-      // 2) spawn a flying orb from that position
-      flyOrb(nr, nc);
-
-      // 3) remove both tiles *after* explosion animation
-      setTimeout(() => {
+      // 1) animate merge
+      animateMerge(currR,currC,nr,nc).then(() => {
+        // 2) after animation, spawn flying orb
+        spawnOrbToCounter(nr,nc);
+        // 3) remove tiles & refill
         grid[currR][currC] = null;
         grid[nr][nc]       = null;
         spawnRandomTile();
         renderGrid();
-      }, 400);
+      });
     }
     break;
   }
@@ -121,39 +112,87 @@ function slideMove(r, c, dr, dc) {
     renderGrid();
   }
   selected = null;
-  setTimeout(renderGrid, 0);
 }
 
-// create a flying orb from cell (r,c) to the next orb-slot
-function flyOrb(r, c) {
-  const cellEl = document.querySelector(
-    `.tile[data-r="${r}"][data-c="${c}"]`
-  );
-  const slotEl = document.querySelectorAll(".orb-slot")[orbCount];
-  if (!cellEl || !slotEl) return;
+function animateMerge(r1,c1,r2,c2) {
+  return new Promise(resolve => {
+    const sel1 = `.tile[data-r="${r1}"][data-c="${c1}"]`;
+    const sel2 = `.tile[data-r="${r2}"][data-c="${c2}"]`;
+    const c1el = document.querySelector(sel1);
+    const c2el = document.querySelector(sel2);
+    if (!c1el||!c2el) { resolve(); return; }
 
-  // get centers
-  const cellRect = cellEl.getBoundingClientRect();
-  const slotRect = slotEl.getBoundingClientRect();
-  const orbEl = document.createElement("div");
-  orbEl.className = "floating-orb";
-  document.body.appendChild(orbEl);
+    // compute centers
+    const r1b = c1el.getBoundingClientRect();
+    const r2b = c2el.getBoundingClientRect();
+    const midX = (r1b.left+r1b.right + r2b.left+r2b.right)/4;
+    const midY = (r1b.top+r1b.bottom + r2b.top+r2b.bottom)/4;
 
-  // place at cell center
-  orbEl.style.transform = `translate(${cellRect.left + cellRect.width/2 - 10}px, ${cellRect.top + cellRect.height/2 - 10}px)`;
+    const c1x = r1b.left + r1b.width/2, c1y = r1b.top + r1b.height/2;
+    const c2x = r2b.left + r2b.width/2, c2y = r2b.top + r2b.height/2;
+    const d1x = midX - c1x, d1y = midY - c1y;
+    const d2x = midX - c2x, d2y = midY - c2y;
 
-  // trigger fly to slot
+    // move both to midpoint
+    [c1el,c2el].forEach(el => {
+      el.style.transition = "transform 0.4s ease";
+    });
+    c1el.style.transform = `translate(${d1x}px,${d1y}px)`;
+    c2el.style.transform = `translate(${d2x}px,${d2y}px)`;
+
+    // after move, shake
+    setTimeout(() => {
+      c1el.classList.add("shake");
+      c2el.classList.add("shake");
+      // then blast walls
+      setTimeout(() => {
+        [c1el,c2el].forEach(el => {
+          el.querySelectorAll(".corner").forEach(bar => {
+            bar.classList.add("blast");
+          });
+        });
+        // after blast, clear transforms & classes
+        setTimeout(() => {
+          [c1el,c2el].forEach(el => {
+            el.classList.remove("shake");
+            el.style.transition = "";
+            el.style.transform = "";
+            el.querySelectorAll(".corner").forEach(bar => {
+              bar.classList.remove("blast");
+            });
+          });
+          resolve();
+        }, 400);
+      }, 300);
+    }, 400);
+  });
+}
+
+function spawnOrbToCounter(r,c) {
+  const cellEl = document.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
+  const slots  = document.querySelectorAll(".orb-slot");
+  const slot   = slots[orbCount];
+  if (!cellEl||!slot) return;
+
+  const orb = document.createElement("div");
+  orb.className = "floating-orb";
+  document.body.appendChild(orb);
+
+  const from = cellEl.getBoundingClientRect();
+  orb.style.transform = `translate(${from.left + from.width/2 -10}px,${from.top + from.height/2 -10}px)`;
+
+  const to = slot.getBoundingClientRect();
   requestAnimationFrame(() => {
-    orbEl.classList.add("fly");
-    orbEl.style.transform = `translate(${slotRect.left + slotRect.width/2 - 10}px, ${slotRect.top + slotRect.height/2 - 10}px)`;
+    orb.classList.add("fly");
+    orb.style.transform = `translate(${to.left + to.width/2 -10}px,${to.top + to.height/2 -10}px)`;
   });
 
-  orbEl.addEventListener("transitionend", () => {
-    orbEl.remove();
-    // finally fill the orb-slot
+  orb.addEventListener("transitionend", () => {
+    orb.remove();
+    // fill orb-slot
     const staticOrb = document.createElement("div");
-    staticOrb.className = "orb filled";
-    slotEl.appendChild(staticOrb);
+    staticOrb.className = "orb";
+    slot.appendChild(staticOrb);
     orbCount++;
     if (orbCount === ORB_TARGET) {
       document.getElementById("message").textContent = "🎉 You Win! 🎉";
@@ -163,15 +202,15 @@ function flyOrb(r, c) {
 
 function spawnRandomTile() {
   const empties = [];
-  for (let r=0;r<GRID_SIZE;r++){
-    for (let c=0;c<GRID_SIZE;c++){
+  for (let r=0;r<GRID_SIZE;r++) {
+    for (let c=0;c<GRID_SIZE;c++) {
       if (!grid[r][c]) empties.push({r,c});
     }
   }
   if (!empties.length) return;
   const {r,c} = empties[Math.floor(Math.random()*empties.length)];
   const colors = Array(4).fill().map(
-    () => COLORS[Math.floor(Math.random()*COLORS.length)]
+    ()=>COLORS[Math.floor(Math.random()*COLORS.length)]
   );
   grid[r][c] = { colors };
 }
