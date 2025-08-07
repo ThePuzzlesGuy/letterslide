@@ -4,187 +4,208 @@ const SIZE        = 4;
 const TILE_SIZE   = 80;
 const GAP         = 10;
 const START_TILES = 2;
+const ORB_TARGET  = 10;
 
-// define colors for each exponent-level (0=empty)
+// colors for exponent levels 0..11
 const COLORS = [
-  "#cdc1b4",
-  "#eee4da",
-  "#ede0c8",
-  "#f2b179",
-  "#f59563",
-  "#f67c5f",
-  "#f65e3b",
-  "#edcf72",
-  "#edcc61",
-  "#edc850",
-  "#edc53f",
-  "#edc22e"
+  "#cdc1b4","#eee4da","#ede0c8","#f2b179",
+  "#f59563","#f67c5f","#f65e3b","#edcf72",
+  "#edcc61","#edc850","#edc53f","#edc22e"
 ];
 
-let grid  = [];
-let score = 0;
+let grid      = [];
+let tileMap   = {};   // id → DOM element
+let score     = 0;
+let orbCount  = 0;
+let orbSlots  = [];   // {x,y} centers
 
-// each cell holds {v: exponent, id: unique}
 document.addEventListener("DOMContentLoaded", () => {
-  setup();
-  document.addEventListener("keydown", handleKey);
   document.getElementById("restart").onclick = setup;
+  document.addEventListener("keydown", handleKey);
+  setup();
 });
 
-function setup() {
-  score = 0;
-  updateScore();
-  grid = Array(SIZE).fill().map(()=>Array(SIZE).fill({v:0,id:null}));
-  // spawn initial tiles
-  for (let i=0;i<START_TILES;i++) addRandom();
-  render(true);
+function setup(){
+  score = 0; updateScore();
+  orbCount = 0;
+  grid = Array.from({length:SIZE}, ()=>Array(SIZE).fill({v:0,id:null}));
+  tileMap = {};
+  initOrbsBar();
+  for(let i=0;i<START_TILES;i++) addRandom();
+  render();  
   document.getElementById("message").textContent = "";
 }
 
-function addRandom() {
+function addRandom(){
   const empties = [];
-  for (let r=0;r<SIZE;r++){
-    for (let c=0;c<SIZE;c++){
-      if (grid[r][c].v===0) empties.push({r,c});
-    }
+  for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+    if(grid[r][c].v===0) empties.push({r,c});
   }
-  if (!empties.length) return false;
+  if(!empties.length) return;
   const {r,c} = empties[Math.floor(Math.random()*empties.length)];
-  grid[r][c] = {v: Math.random()<0.9?1:2, id:crypto.randomUUID()};
-  return true;
+  grid[r][c] = {v: Math.random()<0.9?1:2, id: crypto.randomUUID()};
 }
 
-function render(isNew=false, moves=[]) {
-  const container = document.getElementById("grid-container");
-  // on initial or after move: remove all and recreate
-  if (isNew) {
-    container.innerHTML = "";
-    for (let r=0;r<SIZE;r++){
-      for (let c=0;c<SIZE;c++){
-        const tile = document.createElement("div");
-        tile.className="tile";
-        container.appendChild(tile);
+function render(){
+  const gc = document.getElementById("grid-container");
+  gc.style.width  = `${SIZE*TILE_SIZE + (SIZE-1)*GAP}px`;
+  gc.style.height = gc.style.width;
+  // track which ids remain
+  const live = new Set();
+  for(let r=0;r<SIZE;r++){
+    for(let c=0;c<SIZE;c++){
+      const cell = grid[r][c];
+      if(cell.v===0) continue;
+      live.add(cell.id);
+      let el = tileMap[cell.id];
+      if(!el){
+        el = document.createElement("div");
+        el.className = "tile";
+        gc.appendChild(el);
+        tileMap[cell.id] = el;
       }
+      const left = c*(TILE_SIZE+GAP);
+      const top  = r*(TILE_SIZE+GAP);
+      el.style.left = left+"px";
+      el.style.top  = top +"px";
+      el.style.background = COLORS[cell.v];
     }
   }
-  const tiles = container.querySelectorAll(".tile");
-  // layout and data-index mapping: row-major
-  let idx=0;
-  const positions = [];
-  for (let r=0;r<SIZE;r++){
-    for (let c=0;c<SIZE;c++){
-      const x = c*(TILE_SIZE+GAP);
-      const y = r*(TILE_SIZE+GAP);
-      positions.push({x,y});
+  // remove old
+  Object.keys(tileMap).forEach(id=>{
+    if(!live.has(id)){
+      tileMap[id].remove();
+      delete tileMap[id];
     }
-  }
-  // if moves provided, animate them
-  if (moves.length) {
-    // for each move: {id, from, to, merged}
-    moves.forEach(m=>{
-      const el = Array.from(tiles).find(t=>t.dataset.id===m.id);
-      if (!el) return;
-      el.style.transition = "transform 0.2s ease";
-      el.style.transform = `translate(${m.to.c*(TILE_SIZE+GAP)}px,${m.to.r*(TILE_SIZE+GAP)}px)`;
-      if (m.merged) {
-        el.addEventListener("transitionend", ()=>{
-          el.classList.add("scale");
-          setTimeout(()=>el.classList.remove("scale"),200);
-        },{once:true});
-      }
-    });
-    // after animation, actually re-render final state
-    setTimeout(()=>render(true), 200);
-    return;
-  }
-  // normal render: position all tiles by grid data
-  tiles.forEach((el,i)=>{
-    const {x,y} = positions[i];
-    el.style.transition = "";
-    el.style.transform = `translate(${x}px,${y}px)`;
   });
-  idx=0;
-  for (let r=0;r<SIZE;r++){
-    for (let c=0;c<SIZE;c++){
-      const tdata = grid[r][c];
-      const el = tiles[idx++];
-      el.dataset.id = tdata.id || "";
-      el.style.background = COLORS[tdata.v];
-    }
-  }
 }
 
-function handleKey(e) {
+// handle arrow keys
+function handleKey(e){
   const moves = {
     ArrowUp:    {dr:-1, dc:0},
-    ArrowDown:  {dr: 1, dc:0},
-    ArrowLeft:  {dr: 0, dc:-1},
-    ArrowRight: {dr: 0, dc: 1}
+    ArrowDown:  {dr:1,  dc:0},
+    ArrowLeft:  {dr:0,  dc:-1},
+    ArrowRight: {dr:0,  dc:1}
   };
-  if (!moves[e.key]) return;
+  if(!moves[e.key]) return;
   e.preventDefault();
-  const result = slide(moves[e.key].dr, moves[e.key].dc);
-  if (result.moved) {
-    render(false, result.moves);
-    addRandom();
-    render(true);
+  const {dr,dc} = moves[e.key];
+  const result = slide(dr,dc);
+  if(result.moved){
+    // animate pops
+    result.mergedIds.forEach(id=>{
+      const el = tileMap[id];
+      el.classList.add("pop");
+      setTimeout(()=>el.classList.remove("pop"),200);
+    });
+    // after a tick, add random & rerender
+    setTimeout(()=>{
+      addRandom();
+      render();
+    },200);
     updateScore();
-    if (checkGameOver()) {
+    // then spawn orb
+    setTimeout(()=>spawnOrb(), 250);
+    if(checkGameOver()){
       document.getElementById("message").textContent = "Game Over";
     }
   }
 }
 
-function slide(dr,dc) {
+// slide/merge logic
+function slide(dr,dc){
   let moved=false;
-  let moveRecords = [];
   const merged = Array(SIZE).fill().map(()=>Array(SIZE).fill(false));
+  const mergedIds = [];
   const range = [...Array(SIZE).keys()];
-  if (dr>0) range.reverse();
-  if (dc>0) range.reverse();
+  if(dr>0) range.reverse();
+  if(dc>0) range.reverse();
 
-  range.forEach(r=>{
-    range.forEach(c=>{
-      const tile = grid[r][c];
-      if (tile.v===0) return;
-      let nr=r,nc=c;
-      while(true){
-        const tr=nr+dr, tc=nc+dc;
-        if (tr<0||tr>=SIZE||tc<0||tc>=SIZE) break;
-        const target=grid[tr][tc];
-        if (target.v===0) {
-          grid[tr][tc]=tile;
-          grid[nr][nc]={v:0,id:null};
-          moveRecords.push({id:tile.id,from:{r,nc:c},to:{r:tr,c:tc},merged:false});
-          nr=tr; nc=tc;
-          moved=true;
-        } else if (target.v===tile.v && !merged[tr][tc]) {
-          grid[tr][tc].v++;
-          grid[tr][tc].id = tile.id; // keep id for animation
-          merged[tr][tc]=true;
-          grid[nr][nc]={v:0,id:null};
-          moveRecords.push({id:tile.id,from:{r,c},to:{r:tr,c:tc},merged:true});
-          score += 2**grid[tr][tc].v;
-          moved=true;
-          break;
-        } else break;
-      }
-    });
-  });
-  return { moved, moves: moveRecords };
+  for(let r of range) for(let c of range){
+    const t = grid[r][c];
+    if(t.v===0) continue;
+    let nr=r,nc=c;
+    while(true){
+      const tr=nr+dr, tc=nc+dc;
+      if(tr<0||tr>=SIZE||tc<0||tc>=SIZE) break;
+      const tgt = grid[tr][tc];
+      if(tgt.v===0){
+        grid[tr][tc] = t;
+        grid[nr][nc] = {v:0,id:null};
+        nr=tr; nc=tc; moved=true;
+      } else if(tgt.v===t.v && !merged[tr][tc]){
+        // merge
+        tgt.v++;
+        // keep id for animation
+        merged[tr][tc]=true;
+        mergedIds.push(tgt.id);
+        grid[nr][nc] = {v:0,id:null};
+        score += 2**tgt.v;
+        moved=true;
+        break;
+      } else break;
+    }
+  }
+  if(moved) render();
+  return {moved, mergedIds};
 }
 
-function updateScore() {
+function updateScore(){
   document.getElementById("score-value").textContent = score;
 }
 
-function checkGameOver() {
-  for (let r=0;r<SIZE;r++){
-    for (let c=0;c<SIZE;c++){
-      if (grid[r][c].v===0) return false;
-      if (r<SIZE-1 && grid[r+1][c].v===grid[r][c].v) return false;
-      if (c<SIZE-1 && grid[r][c+1].v===grid[r][c].v) return false;
+// orb bar
+function initOrbsBar(){
+  orbSlots = [];
+  const bar = document.getElementById("orbs-bar");
+  bar.innerHTML="";
+  orbCount=0;
+  for(let i=0;i<ORB_TARGET;i++){
+    const s=document.createElement("div");
+    s.className="orb-slot";
+    bar.appendChild(s);
+    const r=s.getBoundingClientRect();
+    orbSlots.push({
+      x: r.left + r.width/2 - 10,
+      y: r.top  + r.height/2 - 10
+    });
+  }
+}
+
+// spawn one flying orb to next slot
+function spawnOrb(){
+  if(orbCount>=ORB_TARGET) return;
+  // choose random existing tile as start
+  const ids = Object.keys(tileMap);
+  if(!ids.length) return;
+  const startEl = tileMap[ids[0]]; // just pick first
+  const r = startEl.getBoundingClientRect();
+  const orb = document.createElement("div");
+  orb.className = "floating-orb";
+  document.body.appendChild(orb);
+  orb.style.transform = `translate(${r.left + r.width/2 -10}px,${r.top + r.height/2 -10}px)`;
+  const dest = orbSlots[orbCount++];
+  requestAnimationFrame(()=>{
+    orb.classList.add("fly");
+    orb.style.transform = `translate(${dest.x}px,${dest.y}px)`;
+  });
+  orb.addEventListener("transitionend",()=>{
+    orb.remove();
+    const slot = document.querySelectorAll(".orb-slot")[orbCount-1];
+    slot.appendChild(Object.assign(document.createElement("div"),{className:"orb"}));
+    if(orbCount===ORB_TARGET){
+      document.getElementById("message").textContent = "🎉 You Win! 🎉";
     }
+  },{once:true});
+}
+
+// game over detection
+function checkGameOver(){
+  for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+    if(grid[r][c].v===0) return false;
+    if(r<SIZE-1 && grid[r+1][c].v===grid[r][c].v) return false;
+    if(c<SIZE-1 && grid[r][c+1].v===grid[r][c].v) return false;
   }
   return true;
 }
