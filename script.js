@@ -1,210 +1,149 @@
 // script.js
 
-const GRID_SIZE  = 5;
-const COLORS     = ["red","green","blue","pink"];
-const ORB_TARGET = 10;
+const SIZE       = 4;
+const START_TILES = 2;
+const colorMap   = [
+  "#cdc1b4", // 0 (empty)
+  "#eee4da", // 2
+  "#ede0c8", // 4
+  "#f2b179", // 8
+  "#f59563", // 16
+  "#f67c5f", // 32
+  "#f65e3b", // 64
+  "#edcf72", // 128
+  "#edcc61", // 256
+  "#edc850", // 512
+  "#edc53f", // 1024
+  "#edc22e"  // 2048+
+];
 
-let grid     = [];
-let selected = null;
-let orbCount = 0;
-let orbSlots = [];  // screen positions of orb-slots
+let grid  = [];
+let score = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
-  initGrid();
-  renderGrid();
-  spawnRandomTile();
-  spawnRandomTile();
-  initOrbsBar();
+  setup();
   document.addEventListener("keydown", handleKey);
+  document.getElementById("restart").onclick = setup;
 });
 
-function initGrid() {
-  grid = Array.from({length:GRID_SIZE}, ()=>Array(GRID_SIZE).fill(null));
+function setup() {
+  score = 0;
+  updateScore();
+  document.getElementById("message").textContent = "";
+  // init grid
+  grid = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
+  for (let i = 0; i < START_TILES; i++) addRandom();
+  render();
 }
 
-function renderGrid() {
-  const g = document.getElementById("grid");
-  g.innerHTML = "";
-  for (let r=0; r<GRID_SIZE; r++) {
-    for (let c=0; c<GRID_SIZE; c++) {
-      const cell = document.createElement("div");
-      cell.className = "tile";
-      cell.dataset.r = r;
-      cell.dataset.c = c;
-      const tile = grid[r][c];
-      if (tile) {
-        if (selected && selected.r===r && selected.c===c) {
-          cell.classList.add("selected");
-        }
-        ["top","right","bottom","left"].forEach((side,i)=>{
-          const bar = document.createElement("div");
-          bar.className = `corner ${side}`;
-          bar.style.background = tile.colors[i];
-          cell.appendChild(bar);
-        });
+function addRandom() {
+  const empties = [];
+  for (let r=0; r<SIZE; r++){
+    for (let c=0; c<SIZE; c++){
+      if (grid[r][c] === 0) empties.push({r,c});
+    }
+  }
+  if (!empties.length) return false;
+  const {r,c} = empties[Math.floor(Math.random()*empties.length)];
+  // 90% get a '2' (index 1), 10% a '4' (index 2)
+  grid[r][c] = Math.random() < 0.9 ? 1 : 2;
+  return true;
+}
+
+function render() {
+  const container = document.getElementById("grid-container");
+  container.innerHTML = "";
+  for (let r=0; r<SIZE; r++){
+    for (let c=0; c<SIZE; c++){
+      const val = grid[r][c];
+      const tile = document.createElement("div");
+      tile.className = "tile";
+      if (val>0) {
+        tile.style.background = colorMap[val];
+        tile.textContent = Math.pow(2,val);
+        tile.classList.add("new");
+        setTimeout(()=>tile.classList.remove("new"),200);
+      } else {
+        tile.style.background = colorMap[0];
       }
-      cell.addEventListener("click", ()=>{
-        selected = tile ? {r,c} : null;
-        renderGrid();
-      });
-      g.appendChild(cell);
+      container.appendChild(tile);
     }
   }
 }
 
 function handleKey(e) {
-  const moves = {
-    ArrowUp:    {dr:-1, dc:0},
-    ArrowDown:  {dr:1,  dc:0},
-    ArrowLeft:  {dr:0,  dc:-1},
-    ArrowRight: {dr:0,  dc:1}
-  };
-  if (!selected || !moves[e.key]) return;
-  e.preventDefault();
-  slideMove(selected.r, selected.c, moves[e.key].dr, moves[e.key].dc);
-}
-
-async function slideMove(r, c, dr, dc) {
-  const mover = grid[r][c];
-  if (!mover) return;
-  let cr=r, cc=c, moved=false;
-  while (true) {
-    const nr=cr+dr, nc=cc+dc;
-    if (nr<0||nr>=GRID_SIZE||nc<0||nc>=GRID_SIZE) break;
-    const target = grid[nr][nc];
-    if (!target) {
-      grid[cr][cc] = null;
-      grid[nr][nc] = mover;
-      cr=nr; cc=nc;
-      moved=true;
-      continue;
+  let moved = false;
+  switch(e.key) {
+    case "ArrowUp":    moved = move( -1,  0); break;
+    case "ArrowDown":  moved = move(  1,  0); break;
+    case "ArrowLeft":  moved = move(  0, -1); break;
+    case "ArrowRight": moved = move(  0,  1); break;
+    default: return;
+  }
+  if (moved) {
+    addRandom();
+    render();
+    if (checkGameOver()) {
+      document.getElementById("message").textContent = "Game Over";
     }
-    // check shared side-color
-    if (mover.colors.some(col=>target.colors.includes(col))) {
-      // 1) overlap & shake
-      await animateOverlapShake(cr,cc,nr,nc);
-      // 2) burst fragments
-      burstAt(nr,nc);
-      // 3) fly orb
-      await flyOrb(nr,nc);
-      // 4) remove & refill
-      grid[cr][cc] = null;
-      grid[nr][nc] = null;
-      spawnRandomTile();
-      break;
-    }
-    break;
-  }
-  if (moved) { spawnRandomTile(); }
-  selected = null;
-  renderGrid();
-}
-
-function animateOverlapShake(r1,c1,r2,c2){
-  return new Promise(res=>{
-    const sel1 = `.tile[data-r="${r1}"][data-c="${c1}"]`;
-    const sel2 = `.tile[data-r="${r2}"][data-c="${c2}"]`;
-    const e1 = document.querySelector(sel1);
-    const e2 = document.querySelector(sel2);
-    if (!e1||!e2) return res();
-    // overlay at midpoint
-    const b1=e1.getBoundingClientRect(), b2=e2.getBoundingClientRect();
-    const dx1=(b2.left - b1.left)/2, dy1=(b2.top - b1.top)/2;
-    const dx2=(b1.left - b2.left)/2, dy2=(b1.top - b2.top)/2;
-    [e1,e2].forEach(el=>{
-      el.style.transition="transform 0.3s ease";
-    });
-    e1.style.transform = `translate(${dx1}px,${dy1}px)`;
-    e2.style.transform = `translate(${dx2}px,${dy2}px)`;
-    setTimeout(()=>{
-      [e1,e2].forEach(el=>{
-        el.classList.add("shake");
-      });
-      setTimeout(()=>{
-        [e1,e2].forEach(el=>{
-          el.style.transition="";
-          el.style.transform="";
-          el.classList.remove("shake");
-        });
-        res();
-      },300);
-    },300);
-  });
-}
-
-function burstAt(r,c) {
-  const cell = document.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
-  if (!cell) return;
-  const rect = cell.getBoundingClientRect();
-  for (let i=0;i<12;i++){
-    const frag = document.createElement("div");
-    frag.className="fragment";
-    const angle = Math.random()*2*Math.PI;
-    const dist = 40 + Math.random()*20;
-    frag.style.setProperty("--dx", `${Math.cos(angle)*dist}px`);
-    frag.style.setProperty("--dy", `${Math.sin(angle)*dist}px`);
-    frag.style.left = `${rect.left + rect.width/2 -4}px`;
-    frag.style.top  = `${rect.top  + rect.height/2 -4}px`;
-    document.body.appendChild(frag);
-    frag.addEventListener("animationend", ()=>frag.remove(), {once:true});
   }
 }
 
-function initOrbsBar() {
-  orbCount=0;
-  const bar=document.getElementById("orbs-bar");
-  bar.innerHTML="";
-  for (let i=0;i<ORB_TARGET;i++){
-    const s=document.createElement("div");
-    s.className="orb-slot";
-    bar.appendChild(s);
-  }
-  orbSlots = Array.from(bar.children).map(el=>{
-    const r=el.getBoundingClientRect();
-    return {x:r.left+r.width/2-10, y:r.top+r.height/2-10};
-  });
-}
+function move(dr, dc) {
+  let moved = false;
+  const merged = Array(SIZE).fill().map(()=>Array(SIZE).fill(false));
+  const range = [...Array(SIZE).keys()];
+  if (dr>0) range.reverse();
+  if (dc>0) range.reverse();
 
-function flyOrb(r,c){
-  return new Promise(res=>{
-    if (orbCount>=ORB_TARGET) return res();
-    const cell = document.querySelector(`.tile[data-r="${r}"][data-c="${c}"]`);
-    if (!cell) return res();
-    const orb = document.createElement("div");
-    orb.className="floating-orb";
-    document.body.appendChild(orb);
-    const cr=cell.getBoundingClientRect();
-    orb.style.transform=`translate(${cr.left+cr.width/2-10}px,${cr.top+cr.height/2-10}px)`;
-    const dest = orbSlots[orbCount];
-    requestAnimationFrame(()=>{
-      orb.classList.add("fly");
-      orb.style.transform=`translate(${dest.x}px,${dest.y}px)`;
-    });
-    orb.addEventListener("transitionend", ()=>{
-      orb.remove();
-      const slot = document.querySelectorAll(".orb-slot")[orbCount];
-      const sOrb = document.createElement("div");
-      sOrb.className="orb";
-      slot.appendChild(sOrb);
-      orbCount++;
-      if (orbCount===ORB_TARGET) {
-        document.getElementById("message").textContent="🎉 You Win! 🎉";
+  for (let r of range) {
+    for (let c of range) {
+      let val = grid[r][c];
+      if (!val) continue;
+      let nr = r, nc = c;
+      while (true) {
+        const tr = nr+dr, tc = nc+dc;
+        if (tr<0||tr>=SIZE||tc<0||tc>=SIZE) break;
+        if (grid[tr][tc]===0) {
+          grid[tr][tc] = grid[nr][nc];
+          grid[nr][nc] = 0;
+          nr = tr; nc = tc;
+          moved = true;
+        } else if (grid[tr][tc]===val && !merged[tr][tc]) {
+          grid[tr][tc]++;
+          grid[nr][nc]=0;
+          merged[tr][tc]=true;
+          score += Math.pow(2,val+1);
+          updateScore();
+          moved = true;
+          break;
+        } else break;
       }
-      res();
-    }, {once:true});
-  });
-}
-
-function spawnRandomTile(){
-  const empties=[];
-  for (let r=0;r<GRID_SIZE;r++){
-    for (let c=0;c<GRID_SIZE;c++){
-      if (!grid[r][c]) empties.push({r,c});
     }
   }
-  if (!empties.length) return;
-  const {r,c}=empties[Math.floor(Math.random()*empties.length)];
-  const cols=Array(4).fill().map(_=>COLORS[Math.floor(Math.random()*COLORS.length)]);
-  grid[r][c]={colors:cols};
-  renderGrid();
+  return moved;
+}
+
+function updateScore() {
+  document.getElementById("score-value").textContent = score;
+}
+
+function checkGameOver() {
+  // if any empty
+  for (let r=0;r<SIZE;r++){
+    for (let c=0;c<SIZE;c++){
+      if (grid[r][c]===0) return false;
+    }
+  }
+  // if any merge possible
+  for (let r=0;r<SIZE;r++){
+    for (let c=0;c<SIZE;c++){
+      const val = grid[r][c];
+      if ((r<SIZE-1 && grid[r+1][c]===val) ||
+          (c<SIZE-1 && grid[r][c+1]===val)) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
